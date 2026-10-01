@@ -1,0 +1,42 @@
+test_formula_and_gradients (tread_routesync.tests.test_attention_correction.AttentionCorrectionTests.test_formula_and_gradients) ... ok
+test_model_dense_identity_checkpoint_and_sparse_change (tread_routesync.tests.test_attention_correction.AttentionCorrectionTests.test_model_dense_identity_checkpoint_and_sparse_change) ... ok
+test_one_token_and_dense_no_bias (tread_routesync.tests.test_attention_correction.AttentionCorrectionTests.test_one_token_and_dense_no_bias) ... ok
+test_config_and_validation (tread_routesync.tests.test_random_ratio.RandomRatioTests.test_config_and_validation) ... ok
+test_eval_never_samples_ratio_and_matches_fixed_model (tread_routesync.tests.test_random_ratio.RandomRatioTests.test_eval_never_samples_ratio_and_matches_fixed_model) ... ok
+test_ratio_shapes_subset_loss_and_recursive_bf16_backward (tread_routesync.tests.test_random_ratio.RandomRatioTests.test_ratio_shapes_subset_loss_and_recursive_bf16_backward) ... ok
+test_sampling_rng_replay_and_disabled_path (tread_routesync.tests.test_random_ratio.RandomRatioTests.test_sampling_rng_replay_and_disabled_path) ... ok
+test_two_rank_ratio_sync_and_backward (tread_routesync.tests.test_random_ratio.RandomRatioTests.test_two_rank_ratio_sync_and_backward) ... ok
+test_bf16_relation_does_not_change_model_or_optimizer_dtype (tread_routesync.tests.test_routesync.RouteSyncTests.test_bf16_relation_does_not_change_model_or_optimizer_dtype) ... ok
+test_cuda_bfloat16_routesync_backward (tread_routesync.tests.test_routesync.RouteSyncTests.test_cuda_bfloat16_routesync_backward) ... ok
+test_default_routesync_follows_bf16_autocast (tread_routesync.tests.test_routesync.RouteSyncTests.test_default_routesync_follows_bf16_autocast) ... ok
+test_depth_embedding_requires_recursive (tread_routesync.tests.test_routesync.RouteSyncTests.test_depth_embedding_requires_recursive) ... ok
+test_disabled_exactly_matches_existing_tread_forward_loss_and_backward (tread_routesync.tests.test_routesync.RouteSyncTests.test_disabled_exactly_matches_existing_tread_forward_loss_and_backward) ... ok
+test_eval_has_no_routesync_features_in_sparse_or_dense_mode (tread_routesync.tests.test_routesync.RouteSyncTests.test_eval_has_no_routesync_features_in_sparse_or_dense_mode) ... ok
+test_feature_boundaries_and_original_index_mapping (tread_routesync.tests.test_routesync.RouteSyncTests.test_feature_boundaries_and_original_index_mapping) ... ok
+test_invalid_routesync_boundaries_are_rejected (tread_routesync.tests.test_routesync.RouteSyncTests.test_invalid_routesync_boundaries_are_rejected) ... ok
+test_recursive_logical_depth_embedding_changes_condition_and_gets_gradient (tread_routesync.tests.test_routesync.RouteSyncTests.test_recursive_logical_depth_embedding_changes_condition_and_gets_gradient) ... ok
+test_relation_formula_partition_stop_gradient_and_pre_gradient (tread_routesync.tests.test_routesync.RouteSyncTests.test_relation_formula_partition_stop_gradient_and_pre_gradient) ... ok
+test_total_loss_and_recursive_backward (tread_routesync.tests.test_routesync.RouteSyncTests.test_total_loss_and_recursive_backward) ... ok
+test_two_process_ddp_bfloat16_backward (tread_routesync.tests.test_routesync.RouteSyncTests.test_two_process_ddp_bfloat16_backward) ... [RouteSync R-P Relational Loss]
+h_pre/h_post: (2, 16, 32)
+R/P: 8 / 8
+sampled relation: (2, 8, 8)
+relation dtype: torch.float32
+sample ratio: 1.0; post target stop-gradient: True
+ok
+test_cli_validation_and_legacy_default (tread_routesync.tests.test_subset.SubsetTests.test_cli_validation_and_legacy_default) ... ok
+test_full_ratio_exact_formula_gradients_and_no_rng_consumption (tread_routesync.tests.test_subset.SubsetTests.test_full_ratio_exact_formula_gradients_and_no_rng_consumption) ... ok
+test_recursive_bf16_loss_keeps_post_stopped (tread_routesync.tests.test_subset.SubsetTests.test_recursive_bf16_loss_keeps_post_stopped) ... ok
+test_sampling_without_replacement_floor_and_minimum (tread_routesync.tests.test_subset.SubsetTests.test_sampling_without_replacement_floor_and_minimum) ... ok
+test_subset_matches_selected_submatrix_and_gradients (tread_routesync.tests.test_subset.SubsetTests.test_subset_matches_selected_submatrix_and_gradients) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 10.693s
+
+OK
+[RouteSync R-P Relational Loss]
+h_pre/h_post: (2, 16, 32)
+R/P: 8 / 8
+sampled relation: (2, 4, 4)
+relation dtype: torch.bfloat16
+sample ratio: 0.5; post target stop-gradient: True

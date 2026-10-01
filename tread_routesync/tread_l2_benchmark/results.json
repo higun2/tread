@@ -1,0 +1,82 @@
+{
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "torch": "2.5.1+cu124",
+  "batch_size": 32,
+  "config": {
+    "model": "SiT-L/2",
+    "bf16": true,
+    "tf32": true,
+    "start_block": 2,
+    "end_block": 21,
+    "active_ratio": 0.5,
+    "fp32_endpoint": true,
+    "routesync": false,
+    "dense_sparse_sync": false
+  },
+  "scope": "Forward, flow-matching loss, backward, grad clipping and AdamW step; GPU-resident synthetic latent and labels. Excludes DataLoader, VAE sampling, DDP, EMA, scheduler, logging and checkpoint I/O.",
+  "shared_gpu": true,
+  "rounds": [
+    {
+      "round": 0,
+      "mode": "dense",
+      "ms_per_step": 474.48796534445137,
+      "images_per_second": 67.44112040179947,
+      "incremental_peak_mib": 8540.7578125
+    },
+    {
+      "round": 0,
+      "mode": "tread",
+      "ms_per_step": 331.67755464091897,
+      "images_per_second": 96.47924483356695,
+      "incremental_peak_mib": 5059.5078125
+    },
+    {
+      "round": 1,
+      "mode": "tread",
+      "ms_per_step": 334.4034532783553,
+      "images_per_second": 95.69279170500492,
+      "incremental_peak_mib": 5059.5078125
+    },
+    {
+      "round": 1,
+      "mode": "dense",
+      "ms_per_step": 466.5085374144837,
+      "images_per_second": 68.59467176603593,
+      "incremental_peak_mib": 8540.7578125
+    },
+    {
+      "round": 2,
+      "mode": "dense",
+      "ms_per_step": 466.0599367925897,
+      "images_per_second": 68.66069677694895,
+      "incremental_peak_mib": 8540.7578125
+    },
+    {
+      "round": 2,
+      "mode": "tread",
+      "ms_per_step": 327.3101639933884,
+      "images_per_second": 97.76659425903557,
+      "incremental_peak_mib": 5059.5078125
+    }
+  ],
+  "summary": {
+    "dense": {
+      "median_ms_per_step": 466.5085374144837,
+      "range_ms": [
+        466.0599367925897,
+        474.48796534445137
+      ],
+      "median_images_per_second": 68.59467176603593
+    },
+    "tread": {
+      "median_ms_per_step": 331.67755464091897,
+      "range_ms": [
+        327.3101639933884,
+        334.4034532783553
+      ],
+      "median_images_per_second": 96.47924483356695
+    },
+    "speedup_tread_over_dense": 1.4065122311925375,
+    "time_reduction_percent": 28.902146897639746
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "model": "SiT-B/2",
+  "resolution": 256,
+  "encoder_depths": [3, 9],
+  "attn_loss_type": "kl",
+  "kl_coeff": 0.3,
+  "enable_hdiv": true,
+  "hdiv_weight": 0.1,
+  "hdiv_cka_threshold": 0.8,
+  "hdiv_eps": 1e-6,
+  "hdiv_detach_deep": true,
+  "path_type": "linear",
+  "prediction": "v",
+  "weighting": "uniform",
+  "batch_size": 256,
+  "mixed_precision": "bf16",
+  "max_train_steps": 400000
+}

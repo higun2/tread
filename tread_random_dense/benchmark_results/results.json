@@ -1,0 +1,62 @@
+{
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "torch": "2.5.1+cu124",
+  "batch_size": 32,
+  "warmup": 3,
+  "steps_per_round": 8,
+  "rounds_requested": 3,
+  "tread_route": [
+    3,
+    21
+  ],
+  "active_ratio": 0.5,
+  "bf16": true,
+  "tf32": true,
+  "shared_gpu": true,
+  "scope": "flow-matching forward+backward, gradient clipping, AdamW step; no data loader, DDP, EMA, checkpoint, preview or logging",
+  "measurements": [
+    {
+      "round": 0,
+      "mode": "tread",
+      "ms_per_step": 314.6265207324177,
+      "images_per_second": 101.70789139296757
+    },
+    {
+      "round": 0,
+      "mode": "random_dense",
+      "ms_per_step": 322.31224270071834,
+      "images_per_second": 99.28260785834767
+    },
+    {
+      "round": 1,
+      "mode": "random_dense",
+      "ms_per_step": 322.2466978477314,
+      "images_per_second": 99.30280190216472
+    },
+    {
+      "round": 1,
+      "mode": "tread",
+      "ms_per_step": 313.8228284660727,
+      "images_per_second": 101.96836271093488
+    },
+    {
+      "round": 2,
+      "mode": "tread",
+      "ms_per_step": 315.15636714175344,
+      "images_per_second": 101.53689830295193
+    },
+    {
+      "round": 2,
+      "mode": "random_dense",
+      "ms_per_step": 325.72037843056023,
+      "images_per_second": 98.24377631570886
+    }
+  ],
+  "summary": {
+    "median_ms_per_step": {
+      "tread": 314.6265207324177,
+      "random_dense": 322.31224270071834
+    },
+    "random_dense_overhead_percent": 2.4428080475889624
+  }
+}

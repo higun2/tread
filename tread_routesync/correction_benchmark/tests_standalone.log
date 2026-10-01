@@ -1,0 +1,27 @@
+test_config_and_validation (tread_routesync2.tests.test_random_ratio.RandomRatioTests.test_config_and_validation) ... ok
+test_eval_never_samples_ratio_and_matches_fixed_model (tread_routesync2.tests.test_random_ratio.RandomRatioTests.test_eval_never_samples_ratio_and_matches_fixed_model) ... ok
+test_ratio_shapes_subset_loss_and_recursive_bf16_backward (tread_routesync2.tests.test_random_ratio.RandomRatioTests.test_ratio_shapes_subset_loss_and_recursive_bf16_backward) ... ok
+test_sampling_rng_replay_and_disabled_path (tread_routesync2.tests.test_random_ratio.RandomRatioTests.test_sampling_rng_replay_and_disabled_path) ... ok
+test_two_rank_ratio_sync_and_backward (tread_routesync2.tests.test_random_ratio.RandomRatioTests.test_two_rank_ratio_sync_and_backward) ... ok
+test_dense_inference_sampler (tread_routesync2.tests.test_standalone.StandaloneTests.test_dense_inference_sampler) ... ok
+test_inference_returns_no_routesync_features (tread_routesync2.tests.test_standalone.StandaloneTests.test_inference_returns_no_routesync_features) ... ok
+test_latent_dataset_layout (tread_routesync2.tests.test_standalone.StandaloneTests.test_latent_dataset_layout) ... ok
+test_latest_checkpoint_contains_full_continuation_state (tread_routesync2.tests.test_standalone.StandaloneTests.test_latest_checkpoint_contains_full_continuation_state) ... ok
+test_latest_checkpoint_is_atomic_and_auto_selected (tread_routesync2.tests.test_standalone.StandaloneTests.test_latest_checkpoint_is_atomic_and_auto_selected) ... ok
+test_training_forward_routesync_backward (tread_routesync2.tests.test_standalone.StandaloneTests.test_training_forward_routesync_backward) ... ok
+test_cli_validation_and_legacy_default (tread_routesync2.tests.test_subset.SubsetTests.test_cli_validation_and_legacy_default) ... ok
+test_full_ratio_exact_formula_gradients_and_no_rng_consumption (tread_routesync2.tests.test_subset.SubsetTests.test_full_ratio_exact_formula_gradients_and_no_rng_consumption) ... ok
+test_recursive_bf16_loss_keeps_post_stopped (tread_routesync2.tests.test_subset.SubsetTests.test_recursive_bf16_loss_keeps_post_stopped) ... ok
+test_sampling_without_replacement_floor_and_minimum (tread_routesync2.tests.test_subset.SubsetTests.test_sampling_without_replacement_floor_and_minimum) ... ok
+test_subset_matches_selected_submatrix_and_gradients (tread_routesync2.tests.test_subset.SubsetTests.test_subset_matches_selected_submatrix_and_gradients) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 4.855s
+
+OK
+[RouteSync R-P Relational Loss]
+h_pre/h_post: (2, 16, 32)
+R/P: 8 / 8
+sampled relation: (2, 4, 4)
+relation dtype: torch.bfloat16
+sample ratio: 0.5; post target stop-gradient: True

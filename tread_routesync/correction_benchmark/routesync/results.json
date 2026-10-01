@@ -1,0 +1,89 @@
+{
+  "torch": "2.5.1+cu124",
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "args": {
+    "checkpoint": "/v/mnt/GH/SiT/tread-v/checkpoints/0400000.pt",
+    "output": "tread_routesync/correction_benchmark/routesync",
+    "device": "cuda:0",
+    "batch_size": 32,
+    "warmup": 5,
+    "steps": 15,
+    "micro_steps": 50,
+    "rounds": 3,
+    "routesync": true,
+    "skip_micro": true
+  },
+  "caveat": "Shared GPU: other jobs active; alternating repeated measurements, not isolated throughput. Synthetic GPU-resident data, no data loader/DDP/checkpointing/sampling/EMA update.",
+  "micro": [],
+  "training": [
+    {
+      "mode": "baseline",
+      "round": 0,
+      "ms": 154.9909127255281,
+      "images_per_second": 206.46371737076282,
+      "incremental_peak_mb": 2661.58544921875
+    },
+    {
+      "mode": "flex",
+      "round": 0,
+      "ms": 154.17391837884983,
+      "images_per_second": 207.5578044359407,
+      "incremental_peak_mb": 2657.09716796875
+    },
+    {
+      "mode": "sdpa",
+      "round": 0,
+      "ms": 151.8893270442883,
+      "images_per_second": 210.67971412283202,
+      "incremental_peak_mb": 2657.80419921875
+    },
+    {
+      "mode": "sdpa",
+      "round": 1,
+      "ms": 152.19190002729496,
+      "images_per_second": 210.26086141418128,
+      "incremental_peak_mb": 2658.55419921875
+    },
+    {
+      "mode": "flex",
+      "round": 1,
+      "ms": 151.87978893518448,
+      "images_per_second": 210.6929448898311,
+      "incremental_peak_mb": 2657.84716796875
+    },
+    {
+      "mode": "baseline",
+      "round": 1,
+      "ms": 149.31076113134623,
+      "images_per_second": 214.3181091405068,
+      "incremental_peak_mb": 2657.58544921875
+    },
+    {
+      "mode": "sdpa",
+      "round": 2,
+      "ms": 152.40535692622265,
+      "images_per_second": 209.96637287159638,
+      "incremental_peak_mb": 2658.55419921875
+    },
+    {
+      "mode": "flex",
+      "round": 2,
+      "ms": 153.12654245644808,
+      "images_per_second": 208.97748676785653,
+      "incremental_peak_mb": 2657.59716796875
+    },
+    {
+      "mode": "baseline",
+      "round": 2,
+      "ms": 153.0181324109435,
+      "images_per_second": 209.125542808621,
+      "incremental_peak_mb": 2659.33544921875
+    }
+  ],
+  "correctness": [],
+  "warmup_seconds": {
+    "baseline": 1.294260156340897,
+    "sdpa": 0.7690088273957372,
+    "flex": 4.195916728116572
+  }
+}

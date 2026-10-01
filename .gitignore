@@ -1,0 +1,8 @@
+*.DS_Store
+.vscode/
+.samples/
+__pycache__/
+*.py[cod]
+samples/
+classify_image_graph_def.pb
+.git.upstream-backup/

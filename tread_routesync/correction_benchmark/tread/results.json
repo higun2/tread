@@ -1,0 +1,432 @@
+{
+  "torch": "2.5.1+cu124",
+  "gpu": "NVIDIA RTX 6000 Ada Generation",
+  "args": {
+    "checkpoint": "/v/mnt/GH/SiT/tread-v/checkpoints/0400000.pt",
+    "output": "tread_routesync/correction_benchmark/tread",
+    "device": "cuda:0",
+    "batch_size": 32,
+    "warmup": 5,
+    "steps": 15,
+    "micro_steps": 50,
+    "rounds": 3,
+    "routesync": false
+  },
+  "caveat": "Shared GPU: other jobs active; alternating repeated measurements, not isolated throughput. Synthetic GPU-resident data, no data loader/DDP/checkpointing/sampling/EMA update.",
+  "micro": [
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 0,
+      "ms": 0.06898406893014908
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 0,
+      "ms": 0.15692919492721558
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 0,
+      "ms": 0.12565715238451958
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 1,
+      "ms": 0.08091870695352554
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 1,
+      "ms": 0.11791214346885681
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 1,
+      "ms": 0.0642736628651619
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 2,
+      "ms": 0.12426435947418213
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 2,
+      "ms": 0.15486938878893852
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "backward": false,
+      "round": 2,
+      "ms": 0.027375034987926483
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 0,
+      "ms": 0.6602289713919163
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 0,
+      "ms": 1.2609979324042797
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 0,
+      "ms": 0.6534847989678383
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 1,
+      "ms": 0.7041008584201336
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 1,
+      "ms": 1.3316292129456997
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 1,
+      "ms": 0.6732214242219925
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 2,
+      "ms": 0.6918644160032272
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 2,
+      "ms": 1.3048955798149109
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "backward": true,
+      "round": 2,
+      "ms": 0.6223859451711178
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 0,
+      "ms": 0.25691570714116096
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 0,
+      "ms": 0.1394895650446415
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 0,
+      "ms": 0.16667038202285767
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 1,
+      "ms": 0.23033928126096725
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 1,
+      "ms": 0.23381849750876427
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 1,
+      "ms": 0.21838705986738205
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 2,
+      "ms": 0.2586019039154053
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 2,
+      "ms": 0.14143038541078568
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "backward": false,
+      "round": 2,
+      "ms": 0.24994511157274246
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 0,
+      "ms": 0.9585769660770893
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 0,
+      "ms": 1.34182782843709
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 0,
+      "ms": 1.1228345520794392
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 1,
+      "ms": 1.059918086975813
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 1,
+      "ms": 1.3246260024607182
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 1,
+      "ms": 0.9032947011291981
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 2,
+      "ms": 1.0876253060996532
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 2,
+      "ms": 1.292021982371807
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "backward": true,
+      "round": 2,
+      "ms": 1.0148966126143932
+    }
+  ],
+  "training": [
+    {
+      "mode": "baseline",
+      "round": 0,
+      "ms": 131.7166268825531,
+      "images_per_second": 242.94579019650442,
+      "incremental_peak_mb": 2628.78466796875
+    },
+    {
+      "mode": "flex",
+      "round": 0,
+      "ms": 131.92377587159476,
+      "images_per_second": 242.5643125250336,
+      "incremental_peak_mb": 2623.79638671875
+    },
+    {
+      "mode": "sdpa",
+      "round": 0,
+      "ms": 132.17762081573406,
+      "images_per_second": 242.09847175726142,
+      "incremental_peak_mb": 2624.00341796875
+    },
+    {
+      "mode": "sdpa",
+      "round": 1,
+      "ms": 132.47964711238942,
+      "images_per_second": 241.54653712847474,
+      "incremental_peak_mb": 2623.25341796875
+    },
+    {
+      "mode": "flex",
+      "round": 1,
+      "ms": 131.37920188407102,
+      "images_per_second": 243.56975488583643,
+      "incremental_peak_mb": 2623.54638671875
+    },
+    {
+      "mode": "baseline",
+      "round": 1,
+      "ms": 131.7703723286589,
+      "images_per_second": 242.84669940968422,
+      "incremental_peak_mb": 2625.78466796875
+    },
+    {
+      "mode": "sdpa",
+      "round": 2,
+      "ms": 131.99100655814013,
+      "images_per_second": 242.44076043093483,
+      "incremental_peak_mb": 2624.00341796875
+    },
+    {
+      "mode": "flex",
+      "round": 2,
+      "ms": 131.42508591214815,
+      "images_per_second": 243.48471814118184,
+      "incremental_peak_mb": 2623.04638671875
+    },
+    {
+      "mode": "baseline",
+      "round": 2,
+      "ms": 131.73057759801546,
+      "images_per_second": 242.92006141239364,
+      "incremental_peak_mb": 2627.53466796875
+    }
+  ],
+  "correctness": [
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "forward_relative_l2": 0.002123118843883276,
+      "gradient_relative_l2": [
+        0.003425983712077141,
+        0.003362355288118124,
+        0.0028614678885787725
+      ],
+      "first_compile_and_check_seconds": 0.036428894847631454
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.bfloat16",
+      "forward_relative_l2": 0.002121719066053629,
+      "gradient_relative_l2": [
+        0.0029549121391028166,
+        0.0029057099018245935,
+        0.0028616548515856266
+      ],
+      "first_compile_and_check_seconds": 2.606742449104786
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "forward_relative_l2": 8.105474762487574e-07,
+      "gradient_relative_l2": [
+        1.0536194849919411e-06,
+        1.0535295587033033e-06,
+        8.468956025353691e-07
+      ],
+      "first_compile_and_check_seconds": 0.02183604519814253
+    },
+    {
+      "mode": "flex",
+      "dtype": "torch.float32",
+      "forward_relative_l2": 3.065524936118891e-07,
+      "gradient_relative_l2": [
+        2.5478354359620425e-07,
+        2.5076576548599405e-07,
+        2.557780476308835e-07
+      ],
+      "first_compile_and_check_seconds": 0.8792990995571017
+    }
+  ],
+  "sdpa_operators": [
+    {
+      "mode": "baseline",
+      "dtype": "torch.bfloat16",
+      "operators": [
+        "aten::scaled_dot_product_attention",
+        "aten::_scaled_dot_product_flash_attention",
+        "aten::_flash_attention_forward",
+        "aten::_scaled_dot_product_flash_attention_backward",
+        "aten::_flash_attention_backward"
+      ]
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.bfloat16",
+      "operators": [
+        "aten::scaled_dot_product_attention",
+        "aten::_scaled_dot_product_efficient_attention",
+        "aten::_efficient_attention_forward",
+        "aten::_scaled_dot_product_efficient_attention_backward",
+        "aten::_efficient_attention_backward"
+      ]
+    },
+    {
+      "mode": "baseline",
+      "dtype": "torch.float32",
+      "operators": [
+        "aten::scaled_dot_product_attention",
+        "aten::_scaled_dot_product_efficient_attention",
+        "aten::_efficient_attention_forward",
+        "aten::_scaled_dot_product_efficient_attention_backward",
+        "aten::_efficient_attention_backward"
+      ]
+    },
+    {
+      "mode": "sdpa",
+      "dtype": "torch.float32",
+      "operators": [
+        "aten::scaled_dot_product_attention",
+        "aten::_scaled_dot_product_efficient_attention",
+        "aten::_efficient_attention_forward",
+        "aten::_scaled_dot_product_efficient_attention_backward",
+        "aten::_efficient_attention_backward"
+      ]
+    }
+  ],
+  "warmup_seconds": {
+    "baseline": 1.0856196600943804,
+    "sdpa": 0.6570231392979622,
+    "flex": 2.5686365142464638
+  }
+}
