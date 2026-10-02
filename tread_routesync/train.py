@@ -14,6 +14,8 @@ import random
 
 import numpy as np
 import torch
+from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import bf16_compress_hook
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid
@@ -199,6 +201,7 @@ def main(args):
             "tread_recursive_pattern", "tread_depth_embedding",
             "tread_fp32_endpoint",
             "use_dense_sparse_sync", "dense_sparse_sync_ratio", "dense_sparse_sync_weight",
+            "dense_sparse_sync_tokens",
             "use_routesync", "routesync_weight", "routesync_sample_ratio",
             "routesync_loss_type",
             "routesync_target_blocks",
@@ -235,13 +238,17 @@ def main(args):
     model, optimizer, dataloader, scheduler = accelerator.prepare(
         model, optimizer, dataloader, scheduler
     )
+    if isinstance(model, DDP):
+        model.register_comm_hook(state=None, hook=bf16_compress_hook)
+        logger.info("DDP gradient communication: BF16 compression enabled")
     if resume_random_state is not None:
         restore_random_state(resume_random_state)
     if accelerator.is_main_process and args.report_to != "none":
         accelerator.init_trackers(
             args.project_name, config=vars(copy.deepcopy(args)),
             init_kwargs={"wandb": {"name": args.exp_name,
-                                   "dir": str(Path(args.output_dir) / "run_dir")}}
+                                #    "dir": str(Path(args.output_dir) / "run_dir")}}
+                                   "dir": str(Path('/root') / "run_dir")}}
             )
     logger.info("Parameters: %s", f"{sum(p.numel() for p in accelerator.unwrap_model(model).parameters()):,}")
     logger.info("TREAD fixed-subset routing: %s", tread_kwargs(args))
@@ -405,16 +412,17 @@ if __name__ == "__main__":
     main(parse_args())
 
 '''
+WANDB_API_KEY=${WANDB_API_KEY} \
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 accelerate launch \
   --multi_gpu --num_processes 8 --mixed_precision bf16 \
   -m tread_routesync.train \
-  --model SiT-L/2 --exp-name tread-routesync-l-2 \
-  --data-dir /v/mnt/GH/imagenet_256 \
+  --model SiT-B/2 --exp-name dense_sync \
+  --data-dir /root/imagenet_256 \
   --output-dir /v/mnt/GH/SiT \
   --use-tread-routing \
-  --tread-start-block 2 --tread-end-block 21 \
-  --tread-active-ratio 0.5 \
-  --use-routesync --routesync-weight 0.1 \
+  --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
+  --use-dense-sparse-sync \
+  --dense-sparse-sync-ratio 0.1 --dense-sparse-sync-weight 0.1 \
   --batch-size 256 --max-train-steps 400000 \
   --allow-tf32
 

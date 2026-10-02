@@ -254,8 +254,8 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 torchrun \
 torchrun \
   --standalone --nproc_per_node=8 \
   -m tread_routesync.generate \
-  --ckpt /v/mnt/GH/SiT/tread-routesync-xl/checkpoints/0400000.pt \
-  --sample-dir /v/mnt/GH/samples \
+  --ckpt /v/mnt/GH/SiT/dense_sync/checkpoints/0400000.pt \
+  --sample-dir /root/samples \
   --tread-eval-mode dense \
   --num-fid-samples 50000 --per-proc-batch-size 32 \
   --mode sde --num-steps 250 --cfg-scale 1.0

@@ -50,7 +50,8 @@ class SiT(VanillaSiT):
         use_routesync=False, routesync_weight=0.0, routesync_loss_type="relational",
         routesync_sample_ratio=1.0, routesync_target_blocks=None,
         routesync_debug=False, use_dense_sparse_sync=False,
-        dense_sparse_sync_ratio=0.1, dense_sparse_sync_weight=0.1, **kwargs,
+        dense_sparse_sync_ratio=0.1, dense_sparse_sync_weight=0.1,
+        dense_sparse_sync_tokens="active", **kwargs,
     ):
         super().__init__(depth=depth, **kwargs)
         self.use_tread_routing = use_tread_routing
@@ -73,12 +74,20 @@ class SiT(VanillaSiT):
         self.use_dense_sparse_sync = use_dense_sparse_sync
         self.dense_sparse_sync_ratio = dense_sparse_sync_ratio
         self.dense_sparse_sync_weight = dense_sparse_sync_weight
+        if dense_sparse_sync_tokens not in ("active", "routed", "all"):
+            raise ValueError("dense_sparse_sync_tokens must be active, routed, or all")
+        self.dense_sparse_sync_tokens = dense_sparse_sync_tokens
         if not 0 < dense_sparse_sync_ratio <= 1:
             raise ValueError("dense_sparse_sync_ratio must be in (0, 1]")
         if not math.isfinite(dense_sparse_sync_weight) or dense_sparse_sync_weight < 0:
             raise ValueError("dense_sparse_sync_weight must be finite and nonnegative")
         if use_dense_sparse_sync and not use_tread_routing:
             raise ValueError("--use-dense-sparse-sync requires --use-tread-routing")
+        if use_dense_sparse_sync and tread_end_block >= depth:
+            raise ValueError(
+                "Dense-sparse sync requires a full-token block after merge; "
+                "tread_end_block must be less than depth"
+            )
         self.use_routesync = use_routesync
         self.routesync_weight = routesync_weight
         if routesync_loss_type not in ("relational", "feature-cosine"):
@@ -333,6 +342,12 @@ class SiT(VanillaSiT):
         )
         dense_sync_features = None
         if capture_dense_sync:
+            sync_indices = (active_indices if self.dense_sparse_sync_tokens == "active"
+                            else bypass_indices if self.dense_sparse_sync_tokens == "routed"
+                            else None)
+            if sync_indices is not None and sync_indices.shape[1] == 0:
+                raise ValueError("Dense sparse sync requires non-empty selected tokens; "
+                                 "routed sync requires an active ratio below 1")
             count = max(1, int(batch * self.dense_sparse_sync_ratio))
             sample_indices = torch.randperm(batch, device=x.device)[:count]
             # A no-grad teacher must not cache detached autocast weight casts
@@ -352,11 +367,16 @@ class SiT(VanillaSiT):
                         block, dense, self._condition_for_logical_depth(dense_condition, offset),
                         endpoint=block_index == self.tread_end_block - 1,
                     )
-                dense_target = gather_tokens(dense, active_indices.index_select(0, sample_indices))
+                # end is exclusive for routing. Align AFTER the first full-token
+                # suffix block (zero-based end), not after routed block end-1.
+                dense = suffix_blocks[0](dense, dense_condition)
+                dense_target = (dense if sync_indices is None else gather_tokens(
+                    dense, sync_indices.index_select(0, sample_indices)))
             dense_sync_features = {
                 "teacher": dense_target.detach(),
                 "sample_indices": sample_indices,
                 "batch_size": batch,
+                "target_block": self.tread_end_block,
             }
 
         permutation = torch.cat((active_indices, bypass_indices), dim=1)
@@ -405,14 +425,18 @@ class SiT(VanillaSiT):
                 input_counts.append(active.shape[1])
                 output_counts.append(tokens)
 
-        if dense_sync_features is not None:
-            dense_sync_features["student"] = active.index_select(0, sample_indices)
         x = restore_token_order(torch.cat((active, bypass), dim=1), permutation)
         h_post = None
         target_block = self._routesync_target_for_forward(x.device) if capture_routesync else None
         self.last_routesync_target_block = target_block
         for suffix_offset, block in enumerate(suffix_blocks):
             x = block(x, condition)
+            if dense_sync_features is not None and suffix_offset == 0:
+                # Both branches use original spatial order after the first suffix block.
+                student = x.index_select(0, sample_indices)
+                dense_sync_features["student"] = (
+                    student if sync_indices is None else gather_tokens(
+                        student, sync_indices.index_select(0, sample_indices)))
             # Logical zero-based suffix index, also valid with recurrent routing.
             if capture_routesync and self.tread_end_block + suffix_offset == target_block:
                 h_post = x

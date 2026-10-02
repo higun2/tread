@@ -6,3 +6,5 @@ __pycache__/
 samples/
 classify_image_graph_def.pb
 .git.upstream-backup/
+
+.automation/

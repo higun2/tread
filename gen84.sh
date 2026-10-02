@@ -1,4 +1,4 @@
-WANDB_API_KEY=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 \
+WANDB_API_KEY=${WANDB_API_KEY} \
   CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
   accelerate launch train_b2.py \
   --report-to="wandb" \
@@ -31,7 +31,7 @@ torchrun --nnodes=1 --nproc_per_node=8 --master_port=10005 generate2.py \
 
 
 
-# WANDB_API_KEY=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 \
+# WANDB_API_KEY=${WANDB_API_KEY} \
 #   CUDA_VISIBLE_DEVICES=0,1,2,3 \
 #   accelerate launch train_b2.py \
 #   --report-to="wandb" \

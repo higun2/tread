@@ -498,7 +498,7 @@ if __name__ == "__main__":
 
 
 '''
-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
+${WANDB_API_KEY}
 
 sudo chown -R $USER /mnt/GH/SiT /mnt/GH/samples
 
@@ -522,7 +522,7 @@ CUDA_VISIBLE_DEVICES=4,5,6,7 accelerate launch train_b2.py \
   --data-dir=/v/mnt/GH/imagenet_256
 
 
-WANDB_API_KEY=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 CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch train_b2.py \
+WANDB_API_KEY=${WANDB_API_KEY} CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch train_b2.py \
   --report-to="wandb" \
   --allow-tf32 \
   --mixed-precision="fp16" \

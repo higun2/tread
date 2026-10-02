@@ -26,6 +26,7 @@ ROUTESYNC_DEFAULTS = {
     "use_dense_sparse_sync": False,
     "dense_sparse_sync_ratio": 0.1,
     "dense_sparse_sync_weight": 0.1,
+    "dense_sparse_sync_tokens": "active",
     "use_routesync": False,
     "routesync_weight": 0.0,
     "routesync_loss_type": "relational",
@@ -114,7 +115,9 @@ def add_routesync_args(parser):
     parser.add_argument("--dense-sparse-sync-ratio", type=sample_ratio, default=0.1,
         help="Random fraction of local batch receiving a dense routed-segment teacher; floor, minimum one")
     parser.add_argument("--dense-sparse-sync-weight", type=float, default=0.1,
-        help="Weight of negative cosine averaged over selected samples and active tokens")
+        help="Weight of negative cosine averaged over selected samples and selected tokens")
+    parser.add_argument("--dense-sparse-sync-tokens", choices=["active", "routed", "all"],
+        default="active", help="Sync active (processed), routed (bypassed), or all spatial tokens")
     parser.add_argument(
         "--routesync-loss-type", choices=["relational", "feature-cosine"],
         default="relational", help="relational: R-P relation L1; feature-cosine: negative mean cosine between corresponding pre/post tokens with stopped post target",

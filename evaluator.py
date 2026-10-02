@@ -341,8 +341,8 @@ class ManifoldEstimator:
                  - precision: an np.ndarray of length K1
                  - recall: an np.ndarray of length K2
         """
-        features_1_status = np.zeros([len(features_1), radii_2.shape[1]], dtype=np.bool)
-        features_2_status = np.zeros([len(features_2), radii_1.shape[1]], dtype=np.bool)
+        features_1_status = np.zeros([len(features_1), radii_2.shape[1]], dtype=np.bool_)
+        features_2_status = np.zeros([len(features_2), radii_1.shape[1]], dtype=np.bool_)
         for begin_1 in range(0, len(features_1), self.row_batch_size):
             end_1 = begin_1 + self.row_batch_size
             batch_1 = features_1[begin_1:end_1]
@@ -659,6 +659,6 @@ scp /mnt/GH/samples/SiT-B-2-try60-B-l2-0400000-size-256-vae-ema-cfg-1.0-glow-0.0
 CUDA_VISIBLE_DEVICES=3 python evaluator.py samples/VIRTUAL_imagenet256_labeled.npz \
     /v/mnt/GH/samples/SiT-L-2-tread-routesync-l-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
 
-CUDA_VISIBLE_DEVICES=3 python evaluator.py /v/mnt/GH/VIRTUAL_imagenet256_labeled.npz \
-    /v/mnt/GH/samples/SiT-B-2-b-route-adv-offset1-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
+CUDA_VISIBLE_DEVICES=3 python evaluator.py /root/VIRTUAL_imagenet256_labeled.npz \
+    /root/samples/SiT-B-2-dense_sync-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
 '''

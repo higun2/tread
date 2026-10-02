@@ -443,7 +443,7 @@ if __name__ == "__main__":
 
 
 '''
-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
+${WANDB_API_KEY}
 
 sudo chown -R $USER /mnt/GH/
 
