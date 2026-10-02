@@ -84,7 +84,7 @@ class DenseSparseSyncTests(unittest.TestCase):
                     indices=info['active_indices'][f['sample_indices']]
                     expected=importlib.import_module(package+'.model').gather_tokens(h,indices)
                 torch.testing.assert_close(f['teacher'],expected)
-                loss=importlib.import_module(package+'.loss').dense_sparse_cosine_loss(f['student'],f['teacher'])
+                loss=importlib.import_module(package+'.loss').dense_sparse_relative_l2_loss(f['student'],f['teacher'])
                 loss.backward()
                 self.assertGreater(sum(p.grad.abs().sum().item() for b in blocks for p in b.parameters() if p.grad is not None),0)
                 suffix=model.suffix_blocks if recursive else model.blocks[3:]
@@ -93,11 +93,11 @@ class DenseSparseSyncTests(unittest.TestCase):
     def test_formula_and_teacher_stop(self):
         for package in PACKAGES:
             s=torch.randn(2,5,8,requires_grad=True);t=torch.randn_like(s,requires_grad=True)
-            fn=importlib.import_module(package+'.loss').dense_sparse_cosine_loss
+            fn=importlib.import_module(package+'.loss').dense_sparse_relative_l2_loss
             loss=fn(s,t)
-            torch.testing.assert_close(loss,-torch.nn.functional.cosine_similarity(s,t.detach(),dim=-1).mean())
+            torch.testing.assert_close(loss,((s-t.detach()).square().sum(-1)/(t.detach().square().sum(-1)+1e-8)).mean())
             loss.backward();self.assertIsNone(t.grad)
-            self.assertAlmostEqual(fn(s,3*s).item(),-1,places=6)
+            self.assertAlmostEqual(fn(s,3*s).item(),4/9,places=6)
 
     def test_disabled_zero_weight_and_eval_exact(self):
         for package in PACKAGES:

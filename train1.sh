@@ -7,7 +7,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
   --output-dir /v/mnt/GH/SiT \
   --use-tread-routing \
   --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
-  --use-dense-sparse-sync --dense-sparse-sync-tokens routed\
+  --use-dense-sparse-sync --dense-sparse-sync-tokens routed \
   --dense-sparse-sync-ratio 0.1 --dense-sparse-sync-weight 0.1 \
   --batch-size 256 --max-train-steps 400000 \
   --allow-tf32

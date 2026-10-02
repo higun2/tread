@@ -139,12 +139,19 @@ def routesync_feature_cosine_loss(
     }
 
 
-def dense_sparse_cosine_loss(student, teacher):
-    """Align corresponding active tokens; teacher never receives gradients."""
+def dense_sparse_relative_l2_loss(student, teacher, eps=1e-8):
+    """Mean per-token squared error normalized by stopped dense feature energy."""
     if student.ndim != 3 or student.shape != teacher.shape:
         raise ValueError("Dense/sparse features must have matching [B,K,D] shapes")
-    return -F.cosine_similarity(student.float(), teacher.detach().float(),
-                                dim=-1, eps=1e-8).mean()
+    if not math.isfinite(eps) or eps <= 0:
+        raise ValueError("eps must be finite and positive")
+    # Accumulate in FP32 even with BF16 training; preserve FP64 for numerical checks.
+    dtype = torch.float64 if student.dtype == torch.float64 or teacher.dtype == torch.float64 else torch.float32
+    sparse = student.to(dtype)
+    dense = teacher.detach().to(dtype)
+    squared_error = (dense - sparse).square().sum(dim=-1)
+    dense_energy = dense.square().sum(dim=-1)
+    return (squared_error / (dense_energy + eps)).mean()
 
 
 class FlowMatchingLoss:
@@ -261,7 +268,7 @@ class FlowMatchingLoss:
             if route_features is None or "dense_sparse_sync" not in route_features:
                 raise RuntimeError("Dense-sparse sync enabled but model returned no endpoint features")
             features = route_features["dense_sparse_sync"]
-            dense_loss = dense_sparse_cosine_loss(features["student"], features["teacher"])
+            dense_loss = dense_sparse_relative_l2_loss(features["student"], features["teacher"])
             dense_count = features["student"].shape[0]
             dense_fraction = dense_count / features["batch_size"]
             total = total + self.dense_sparse_sync_weight * dense_loss

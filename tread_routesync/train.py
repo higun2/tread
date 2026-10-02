@@ -297,7 +297,7 @@ def main(args):
                 logs.update({
                     "loss/dense_sparse_sync": result["dense_sparse_sync"].detach().item(),
                     "loss/dense_sparse_sync_weighted": result["dense_sparse_sync_weighted"].detach().item(),
-                    "dense_sparse_sync/cosine": -result["dense_sparse_sync"].detach().item(),
+                    "dense_sparse_sync/relative_l2": result["dense_sparse_sync"].detach().item(),
                     "dense_sparse_sync/samples_per_rank": result["dense_sparse_sync_samples"],
                     "dense_sparse_sync/actual_fraction": result["dense_sparse_sync_fraction"],
                 })

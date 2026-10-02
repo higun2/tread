@@ -111,11 +111,11 @@ def sample_ratio(value):
 
 def add_routesync_args(parser):
     parser.add_argument("--use-dense-sparse-sync", action=argparse.BooleanOptionalAction,
-        default=False, help="Training-only negative cosine from sparse endpoint to stopped dense endpoint")
+        default=False, help="Training-only relative squared L2 from sparse endpoint to stopped dense endpoint")
     parser.add_argument("--dense-sparse-sync-ratio", type=sample_ratio, default=0.1,
         help="Random fraction of local batch receiving a dense routed-segment teacher; floor, minimum one")
     parser.add_argument("--dense-sparse-sync-weight", type=float, default=0.1,
-        help="Weight of negative cosine averaged over selected samples and selected tokens")
+        help="Weight of relative squared L2 averaged over selected samples and selected tokens")
     parser.add_argument("--dense-sparse-sync-tokens", choices=["active", "routed", "all"],
         default="active", help="Sync active (processed), routed (bypassed), or all spatial tokens")
     parser.add_argument(
