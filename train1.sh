@@ -15,7 +15,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun \
   --standalone --nproc_per_node=4 \
   -m tread_routesync.generate \
-  --ckpt /v/mnt/GH/SiT/dense_sync/checkpoints/0400000.pt \
+  --ckpt /v/mnt/GH/SiT/dense_sync2/checkpoints/0400000.pt \
   --sample-dir /root/samples \
   --tread-eval-mode dense \
   --num-fid-samples 50000 --per-proc-batch-size 32 \
