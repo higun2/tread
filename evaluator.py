@@ -660,5 +660,8 @@ CUDA_VISIBLE_DEVICES=3 python evaluator.py samples/VIRTUAL_imagenet256_labeled.n
     /v/mnt/GH/samples/SiT-L-2-tread-routesync-l-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
 
 CUDA_VISIBLE_DEVICES=3 python evaluator.py /root/VIRTUAL_imagenet256_labeled.npz \
-    /root/samples/SiT-B-2-dense_sync-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
+    /root/samples/SSiT-B-2-dense_sync4-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
+
+CUDA_VISIBLE_DEVICES=4 python evaluator.py /root/VIRTUAL_imagenet256_labeled.npz \
+    /root/samples/SiT-B-2-dense_sync5-0400000-size-256-vae-ema-cfg-1.0-glow-0.0-ghigh-1.0-seed-0-sde-tread-dense-ratio-0.5-recursive-0-pattern-grouped-depth-emb-0.npz
 '''
