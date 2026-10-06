@@ -158,7 +158,8 @@ def dense_push_loss(sparse, dense, margin=0.95, eps=1e-8):
     return loss, cosine.detach()
 
 
-def attention_sync_loss(student, teacher, heads="mean", kind="js"):
+def attention_sync_loss(student, teacher, heads="mean", kind="js",
+                        mask_ratio=0.0, mask_unit="element"):
     """Divergence between attention rows, teacher stop-gradient.
 
     ``student``/``teacher`` are log-probabilities [B,H,K,K] over the last dim.
@@ -166,7 +167,16 @@ def attention_sync_loss(student, teacher, heads="mean", kind="js"):
     "per-head" compares head h with head h. Rows (queries) are weighted equally.
     l1 is sum_j |S - T| per row in [0, 2]; kl is KL(T || S); js is
     Jensen-Shannon in nats, in [0, log 2].
+
+    ``mask_ratio`` randomly excludes that fraction of the per-entry divergence
+    terms, resampled every call: ``element`` drops single (query, key) entries,
+    ``query`` drops whole rows, ``key`` drops whole columns. The masked sum is
+    divided by the realized kept fraction, so its scale matches the unmasked loss.
     """
+    if not 0.0 <= mask_ratio < 1.0:
+        raise ValueError("mask_ratio must be in [0, 1)")
+    if mask_unit not in ("element", "query", "key"):
+        raise ValueError("mask_unit must be element, query, or key")
     if student.ndim != 4 or student.shape != teacher.shape:
         raise ValueError("attention maps must have matching [B,H,K,K] shapes")
     if heads not in ("mean", "per-head"):
@@ -180,16 +190,25 @@ def attention_sync_loss(student, teacher, heads="mean", kind="js"):
         log_t = log_t.logsumexp(dim=1) - log_heads
     p_s, p_t = log_s.exp(), log_t.exp()
     if kind == "l1":
-        per_row = (p_s - p_t).abs().sum(dim=-1)
+        terms = (p_s - p_t).abs()
     elif kind == "kl":
-        per_row = (p_t * (log_t - log_s)).sum(dim=-1)
+        # Generalized KL: per-entry nonnegative, same row sum as KL(T || S).
+        terms = p_t * (log_t - log_s) - p_t + p_s
     elif kind == "js":
         log_m = torch.logaddexp(log_s, log_t) - math.log(2.0)
-        per_row = 0.5 * ((p_s * (log_s - log_m)).sum(dim=-1)
-                         + (p_t * (log_t - log_m)).sum(dim=-1))
+        terms = 0.5 * (p_s * (log_s - log_m) + p_t * (log_t - log_m))
     else:
         raise ValueError("kind must be l1, js, or kl")
-    return per_row.mean()
+    if mask_ratio == 0.0:
+        return terms.sum(dim=-1).mean()
+    shape = list(terms.shape)
+    if mask_unit == "query":
+        shape[-1] = 1
+    elif mask_unit == "key":
+        shape[-2] = 1
+    keep = (torch.rand(shape, device=terms.device) >= mask_ratio).to(terms.dtype)
+    kept_fraction = keep.mean().clamp_min(1.0 / keep.numel())
+    return (terms * keep).sum(dim=-1).mean() / kept_fraction
 
 
 class FlowMatchingLoss:
@@ -199,8 +218,12 @@ class FlowMatchingLoss:
         routesync_sample_ratio=1.0, routesync_loss_type="relational",
         use_dense_push=False, dense_push_weight=0.1, dense_push_margin=0.95,
         use_attn_sync=False, attn_sync_weight=0.1, attn_sync_heads="mean",
-        attn_sync_loss="js",
+        attn_sync_loss="js", attn_sync_mask_ratio=0.0, attn_sync_mask_unit="element",
     ):
+        if not 0.0 <= attn_sync_mask_ratio < 1.0:
+            raise ValueError("attn_sync_mask_ratio must be in [0, 1)")
+        self.attn_sync_mask_ratio = attn_sync_mask_ratio
+        self.attn_sync_mask_unit = attn_sync_mask_unit
         self.use_attn_sync = use_attn_sync
         self.attn_sync_weight = attn_sync_weight
         self.attn_sync_heads = attn_sync_heads
@@ -340,7 +363,8 @@ class FlowMatchingLoss:
                 raise RuntimeError("Attention sync is missing teacher or student maps")
             for block, student in features["students"].items():
                 attn_per_block[block] = attention_sync_loss(
-                    student, features["teacher"], self.attn_sync_heads, self.attn_sync_loss)
+                    student, features["teacher"], self.attn_sync_heads, self.attn_sync_loss,
+                    self.attn_sync_mask_ratio, self.attn_sync_mask_unit)
             # Mean over student blocks: the weight does not scale with their count.
             attn_loss = torch.stack(list(attn_per_block.values())).mean()
             total = total + self.attn_sync_weight * attn_loss

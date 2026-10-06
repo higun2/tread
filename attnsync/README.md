@@ -36,6 +36,8 @@ Gradients from the sync loss reach only the student blocks and the blocks before
 | `--attn-sync-loss` | js | `l1` (sum per row, in [0,2]), `js` (nats, in [0, log 2]), `kl` = KL(teacher ‖ student) |
 | `--attn-sync-weight` | 0.1 | lambda, applied to the mean over student blocks |
 | `--attn-sync-ratio` | 1.0 | fraction of the local batch whose maps are computed |
+| `--attn-sync-mask-ratio` | 0.0 | random fraction of attention-map entries excluded from the loss, resampled every step and student block; the kept sum is divided by the kept fraction so the loss scale is unchanged |
+| `--attn-sync-mask-unit` | element | `element`: drop single (query, key) entries; `query`: drop whole rows; `key`: drop whole columns |
 
 All divergences are averaged over query rows, samples (and heads for `per-head`). Logged
 values: `loss/attn_sync` and `attn_sync/<loss>_block<i>` for each student block.

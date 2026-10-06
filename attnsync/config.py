@@ -37,6 +37,8 @@ ROUTESYNC_DEFAULTS = {
     "attn_sync_loss": "js",
     "attn_sync_weight": 0.1,
     "attn_sync_ratio": 1.0,
+    "attn_sync_mask_ratio": 0.0,
+    "attn_sync_mask_unit": "element",
     "use_routesync": False,
     "routesync_weight": 0.0,
     "routesync_loss_type": "relational",
@@ -119,6 +121,13 @@ def sample_ratio(value):
     return value
 
 
+def mask_ratio(value):
+    value = float(value)
+    if not 0.0 <= value < 1.0:
+        raise argparse.ArgumentTypeError("mask ratio must be in [0, 1)")
+    return value
+
+
 def add_routesync_args(parser):
     parser.add_argument("--use-dense-push", action=argparse.BooleanOptionalAction,
         default=False, help="Training-only margin repulsion between pooled dense and sparse path features")
@@ -149,6 +158,10 @@ def add_routesync_args(parser):
         help="Weight of the attention sync loss averaged over student blocks")
     parser.add_argument("--attn-sync-ratio", type=sample_ratio, default=1.0,
         help="Random fraction of local batch whose attention maps are computed; floor, minimum one")
+    parser.add_argument("--attn-sync-mask-ratio", type=mask_ratio, default=0.0,
+        help="Random fraction of attention-map entries excluded from the sync loss, resampled each step; 0 disables")
+    parser.add_argument("--attn-sync-mask-unit", choices=["element", "query", "key"], default="element",
+        help="element: drop single (query, key) entries; query: drop whole rows; key: drop whole columns")
     parser.add_argument(
         "--routesync-loss-type", choices=["relational", "feature-cosine"],
         default="relational", help="relational: R-P relation L1; feature-cosine: negative mean cosine between corresponding pre/post tokens with stopped post target",

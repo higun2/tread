@@ -78,7 +78,8 @@ class SiT(VanillaSiT):
         dense_push_tokens="all", dense_push_grad="sparse", use_attn_sync=False,
         attn_sync_student_blocks=None, attn_sync_teacher_block=None,
         attn_sync_heads="mean", attn_sync_loss="js", attn_sync_weight=0.1,
-        attn_sync_ratio=1.0, **kwargs,
+        attn_sync_ratio=1.0, attn_sync_mask_ratio=0.0, attn_sync_mask_unit="element",
+        **kwargs,
     ):
         super().__init__(depth=depth, **kwargs)
         self.use_tread_routing = use_tread_routing

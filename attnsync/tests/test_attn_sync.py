@@ -68,6 +68,42 @@ class AttentionSyncLossTests(unittest.TestCase):
         self.assertAlmostEqual(attention_sync_loss(s, permuted, 'mean', 'js').item(), 0, places=5)
         self.assertGreater(attention_sync_loss(s, permuted, 'per-head', 'js').item(), 1e-3)
 
+    def test_mask_excludes_entries_and_keeps_scale(self):
+        s = torch.randn(4, 3, 16, 16, dtype=torch.float64).log_softmax(-1).requires_grad_()
+        t = torch.randn(4, 3, 16, 16, dtype=torch.float64).log_softmax(-1)
+        full = attention_sync_loss(s, t, 'per-head', 'l1')
+        for unit in ('element', 'query', 'key'):
+            with self.subTest(unit=unit):
+                torch.manual_seed(0)
+                masked = attention_sync_loss(s, t, 'per-head', 'l1', 0.5, unit)
+                # Rebuild the same mask to check exactly which terms survive.
+                torch.manual_seed(0)
+                shape = [4, 3, 16, 1 if unit == 'query' else 16]
+                if unit == 'key':
+                    shape[2] = 1
+                keep = (torch.rand(shape) >= 0.5).double()
+                terms = (s.detach().exp() - t.exp()).abs() * keep
+                torch.testing.assert_close(masked.detach(), terms.sum(-1).mean() / keep.mean())
+                self.assertNotAlmostEqual(masked.item(), full.item(), places=6)
+                # Unbiased: the average over many masks approaches the full loss.
+                mean = torch.stack([attention_sync_loss(s.detach(), t, 'per-head', 'l1', 0.5, unit)
+                                    for _ in range(400)]).mean()
+                self.assertAlmostEqual(mean.item(), full.item(), delta=0.02 * full.item())
+        torch.testing.assert_close(attention_sync_loss(s, t, 'per-head', 'l1', 0.0), full)
+        with self.assertRaises(ValueError):
+            attention_sync_loss(s, t, 'per-head', 'l1', 1.0)
+
+    def test_flow_matching_loss_uses_mask(self):
+        model = make().train()
+        x, t, y = torch.randn(2, 4, 8, 8), torch.rand(2), torch.tensor([1, 2])
+        for ratio in (0.0, 0.5):
+            torch.manual_seed(0)
+            criterion = FlowMatchingLoss(use_attn_sync=True, attn_sync_loss='l1',
+                                         attn_sync_heads='per-head', attn_sync_mask_ratio=ratio)
+            result = criterion(model, torch.randn(2, 4, 8, 8), {'y': y})
+            self.assertTrue(torch.isfinite(result['attn_sync']))
+            result['total'].backward()
+
 
 class AttentionSyncModelTests(unittest.TestCase):
     @classmethod

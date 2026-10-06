@@ -177,6 +177,8 @@ def main(args):
         attn_sync_weight=args.attn_sync_weight,
         attn_sync_heads=args.attn_sync_heads,
         attn_sync_loss=args.attn_sync_loss,
+        attn_sync_mask_ratio=args.attn_sync_mask_ratio,
+        attn_sync_mask_unit=args.attn_sync_mask_unit,
     )
     dataset = CustomDataset(args.data_dir, num_classes=args.num_classes)
     if args.batch_size % accelerator.num_processes:
@@ -210,6 +212,7 @@ def main(args):
             "dense_push_grad",
             "use_attn_sync", "attn_sync_student_blocks", "attn_sync_teacher_block",
             "attn_sync_heads", "attn_sync_loss", "attn_sync_weight", "attn_sync_ratio",
+            "attn_sync_mask_ratio", "attn_sync_mask_unit",
             "use_routesync", "routesync_weight", "routesync_sample_ratio",
             "routesync_loss_type",
             "routesync_target_blocks",
@@ -438,7 +441,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
   --use-tread-routing \
   --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
   --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 7 \
-  --attn-sync-heads mean --attn-sync-loss l1 --attn-sync-weight 0.1 \
+  --attn-sync-heads per-head --attn-sync-loss l1 --attn-sync-weight 0.1 \
   --batch-size 256 --max-train-steps 400000 \
   --allow-tf32
 '''
