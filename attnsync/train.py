@@ -199,10 +199,20 @@ def main(args):
 
     global_step = 0
     resume_random_state = None
-    if args.resume_step > 0:
-        checkpoint = torch.load(
-            checkpoint_dir / f"{args.resume_step:07d}.pt", map_location="cpu", weights_only=False,
-        )
+    resume_path = None
+    if args.resume_last:
+        # last.pt is rewritten every --last-checkpointing-steps; fall back to the
+        # newest numbered checkpoint for runs started before last.pt existed.
+        numbered = sorted(checkpoint_dir.glob("[0-9]" * 7 + ".pt"))
+        last = checkpoint_dir / "last.pt"
+        resume_path = last if last.exists() else (numbered[-1] if numbered else None)
+        if resume_path is None:
+            logger.info("--resume-last: no checkpoint in %s, starting from scratch", checkpoint_dir)
+    elif args.resume_step > 0:
+        resume_path = checkpoint_dir / f"{args.resume_step:07d}.pt"
+    if resume_path is not None:
+        logger.info("Resuming from %s", resume_path)
+        checkpoint = torch.load(resume_path, map_location="cpu", weights_only=False)
         saved = checkpoint["args"]
         log_resume_correction(logger, saved, args)
         # Only fields that change the training graph must match. Evaluation and
@@ -308,8 +318,6 @@ def main(args):
             logs = {
                 "loss/total": result["total"].detach().item(),
                 "loss/fm": result["fm"].detach().item(),
-                "loss/route_sync": result["route_sync"].detach().item(),
-                "loss/route_sync_weighted": result["route_sync_weighted"].detach().item(),
                 "optimization/grad_norm": float(grad_norm),
                 "optimization/lr": scheduler.get_last_lr()[0],
             }
@@ -329,39 +337,35 @@ def main(args):
                     **{f"attn_sync/{args.attn_sync_loss}_block{block}": value.item()
                        for block, value in result["attn_sync_per_block"].items()},
                 })
-            if args.use_routesync:
-                logs["routesync/target_block"] = accelerator.unwrap_model(model).last_routesync_target_block
             if args.tread_active_ratios is not None:
                 routed_model = accelerator.unwrap_model(model)
                 logs.update({
                     "routing/active_ratio": routed_model.last_tread_active_ratio,
                     "routing/active_fraction": routed_model.last_tread_active_fraction,
                 })
-            if args.use_routesync and args.routesync_loss_type == "feature-cosine":
-                logs.update({
-                    "routesync/feature_cosine_mean": result["feature_cosine_mean"].item(),
-                    "routesync/feature_cosine_r_mean": result["feature_cosine_r_mean"].item(),
-                    "routesync/feature_cosine_p_mean": result["feature_cosine_p_mean"].item(),
-                })
-            if args.routesync_debug and args.routesync_loss_type == "relational":
-                logs.update({
-                    "routesync/relation_pre_mean": result["relation_pre_mean"].item(),
-                    "routesync/relation_post_mean": result["relation_post_mean"].item(),
-                    "routesync/relation_abs_diff_mean": result["relation_abs_diff_mean"].item(),
-                })
             progress.set_postfix(loss=f"{logs['loss/total']:.4f}")
             accelerator.log(logs, step=global_step)
 
-            if global_step % args.checkpointing_steps == 0:
+            save_numbered = global_step % args.checkpointing_steps == 0
+            save_last = (args.last_checkpointing_steps > 0
+                         and global_step % args.last_checkpointing_steps == 0)
+            if save_numbered or save_last:
                 accelerator.wait_for_everyone()
                 random_states = gather_object([random_state_dict()])
                 if accelerator.is_main_process:
-                    torch.save({
+                    state = {
                         "model": accelerator.unwrap_model(model).state_dict(),
                         "ema": ema.state_dict(), "opt": optimizer.state_dict(),
                         "scheduler": scheduler.state_dict(), "steps": global_step,
                         "args": vars(args), "random_states": random_states,
-                    }, checkpoint_dir / f"{global_step:07d}.pt")
+                    }
+                    if save_numbered:
+                        torch.save(state, checkpoint_dir / f"{global_step:07d}.pt")
+                    if save_last:
+                        # Write then rename, so a crash mid-save keeps the previous last.pt.
+                        tmp = checkpoint_dir / "last.pt.tmp"
+                        torch.save(state, tmp)
+                        tmp.replace(checkpoint_dir / "last.pt")
 
             if (args.report_to == "wandb" and args.sampling_steps > 0
                     and (global_step == 1 or global_step % args.sampling_steps == 0)):
@@ -435,6 +439,10 @@ def parse_args(argv=None):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--checkpointing-steps", type=int, default=50000)
     parser.add_argument("--resume-step", type=int, default=0)
+    parser.add_argument("--last-checkpointing-steps", type=int, default=10000,
+        help="Overwrite checkpoints/last.pt every N steps; 0 disables")
+    parser.add_argument("--resume-last", action="store_true",
+        help="Resume from checkpoints/last.pt (else the newest numbered checkpoint); overrides --resume-step")
     parser.add_argument("--sampling-steps", type=int, default=10000)
     parser.add_argument("--sampling-batch-size", type=int, default=64)
     return parser.parse_args(argv)

@@ -3,7 +3,6 @@
 import math
 import numpy as np
 import torch
-import torch.distributed as dist
 import torch.nn.functional as F
 
 from .model import gather_tokens
@@ -320,24 +319,6 @@ class FlowMatchingLoss:
             )
             if debug_now:
                 self._debug_printed = True
-                if not dist.is_initialized() or dist.get_rank() == 0:
-                    if self.routesync_loss_type == "feature-cosine":
-                        print(
-                            "[RouteSync Feature Cosine Loss]\n"
-                            f"h_pre/h_post: {tuple(route_features['h_pre'].shape)}\n"
-                            f"sampled tokens R/P: {stats['sampled_r_tokens']}/{stats['sampled_p_tokens']}\n"
-                            f"sample ratio: {self.routesync_sample_ratio}; post target stop-gradient: True"
-                        )
-                    else:
-                        print(
-                            "[RouteSync R-P Relational Loss]\n"
-                            f"h_pre/h_post: {tuple(route_features['h_pre'].shape)}\n"
-                            f"R/P: {route_features['routed_idx'].shape[1]} / "
-                            f"{route_features['processed_idx'].shape[1]}\n"
-                            f"sampled relation: {(route_features['h_pre'].shape[0], stats['sampled_r_tokens'], stats['sampled_p_tokens'])}\n"
-                            f"relation dtype: {stats['relation_pre_mean'].dtype}\n"
-                            f"sample ratio: {self.routesync_sample_ratio}; post target stop-gradient: True"
-                        )
 
         weighted = self.routesync_weight * route_sync_loss
         total = fm_loss if not self.use_routesync else fm_loss + weighted
