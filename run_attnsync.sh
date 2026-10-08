@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Train -> generate 50k (dense, SDE 250, cfg 1.0) -> evaluate, for one attention-sync run.
+# Set STUDENTS="4 5" to change student blocks (default 4).
+# Set FAST=1 to add --compile --fused-optim.
+# Set RESUME_STEP=<step> to continue training from an existing checkpoint.
 # Usage: WANDB_API_KEY=... bash run_attnsync.sh <gpus> <exp-name> <heads: mean|per-head> <port> [mask-ratio] [mask-unit] [loss: l1|js|kl] [weight]
 set -euo pipefail
 
@@ -13,7 +16,7 @@ STEPS=400000
 CKPT=$OUT/$EXP/checkpoints/$(printf %07d $STEPS).pt
 
 cd "$(dirname "$0")"
-echo "[$(date)] train $EXP on GPUs $GPUS (heads=$HEADS, mask=$MASK/$MASK_UNIT, loss=$LOSS, weight=$WEIGHT)"
+echo "[$(date)] train $EXP on GPUs $GPUS (students=${STUDENTS:-4}, heads=$HEADS, mask=$MASK/$MASK_UNIT, loss=$LOSS, weight=$WEIGHT, fast=${FAST:-0})"
 if [[ ! -f $CKPT ]]; then
   CUDA_VISIBLE_DEVICES=$GPUS accelerate launch \
     --multi_gpu --num_processes "$NPROC" --main_process_port "$PORT" --mixed_precision bf16 \
@@ -23,11 +26,12 @@ if [[ ! -f $CKPT ]]; then
     --output-dir "$OUT" \
     --use-tread-routing \
     --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
-    --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 7 \
+    --use-attn-sync --attn-sync-student-blocks ${STUDENTS:-4} --attn-sync-teacher-block 7 \
     --attn-sync-heads "$HEADS" --attn-sync-loss "$LOSS" --attn-sync-weight "$WEIGHT" \
     --attn-sync-mask-ratio "$MASK" --attn-sync-mask-unit "$MASK_UNIT" \
     --batch-size 256 --max-train-steps $STEPS \
-    --allow-tf32
+    --allow-tf32 --resume-step "${RESUME_STEP:-0}" \
+    $([[ ${FAST:-0} == 1 ]] && echo --compile --fused-optim)
 fi
 
 echo "[$(date)] generate $EXP"

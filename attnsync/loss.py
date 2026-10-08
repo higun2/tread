@@ -219,7 +219,11 @@ class FlowMatchingLoss:
         use_dense_push=False, dense_push_weight=0.1, dense_push_margin=0.95,
         use_attn_sync=False, attn_sync_weight=0.1, attn_sync_heads="mean",
         attn_sync_loss="js", attn_sync_mask_ratio=0.0, attn_sync_mask_unit="element",
+        compile=False,
     ):
+        # The divergence runs on large [B,H,K,K] FP32 maps: fusing it saves memory traffic.
+        self._attention_sync_loss = (torch.compile(attention_sync_loss) if compile
+                                     else attention_sync_loss)
         if not 0.0 <= attn_sync_mask_ratio < 1.0:
             raise ValueError("attn_sync_mask_ratio must be in [0, 1)")
         self.attn_sync_mask_ratio = attn_sync_mask_ratio
@@ -362,7 +366,7 @@ class FlowMatchingLoss:
             if features["teacher"] is None or not features["students"]:
                 raise RuntimeError("Attention sync is missing teacher or student maps")
             for block, student in features["students"].items():
-                attn_per_block[block] = attention_sync_loss(
+                attn_per_block[block] = self._attention_sync_loss(
                     student, features["teacher"], self.attn_sync_heads, self.attn_sync_loss,
                     self.attn_sync_mask_ratio, self.attn_sync_mask_unit)
             # Mean over student blocks: the weight does not scale with their count.

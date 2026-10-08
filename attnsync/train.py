@@ -82,7 +82,11 @@ def generate_training_preview(ema, vae, noise, labels, path_type, cfg_scale):
 
 
 @torch.no_grad()
-def update_ema(ema_model, model, decay=0.9999):
+def update_ema(ema_model, model, decay=0.9999, foreach=False):
+    if foreach:
+        # One multi-tensor kernel; same update as below up to FP32 rounding.
+        torch._foreach_lerp_(list(ema_model.parameters()), list(model.parameters()), 1 - decay)
+        return
     parameters = dict(model.named_parameters())
     for name, ema_parameter in ema_model.named_parameters():
         ema_parameter.mul_(decay).add_(parameters[name].detach(), alpha=1 - decay)
@@ -160,7 +164,7 @@ def main(args):
         torch.backends.cudnn.allow_tf32 = True
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.learning_rate, betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay, eps=args.adam_epsilon,
+        weight_decay=args.adam_weight_decay, eps=args.adam_epsilon, fused=args.fused_optim,
     )
     scheduler = LambdaLR(optimizer, lambda _: 1.0)
     criterion = FlowMatchingLoss(
@@ -179,6 +183,7 @@ def main(args):
         attn_sync_loss=args.attn_sync_loss,
         attn_sync_mask_ratio=args.attn_sync_mask_ratio,
         attn_sync_mask_unit=args.attn_sync_mask_unit,
+        compile=args.compile,
     )
     dataset = CustomDataset(args.data_dir, num_classes=args.num_classes)
     if args.batch_size % accelerator.num_processes:
@@ -252,6 +257,9 @@ def main(args):
     if isinstance(model, DDP):
         model.register_comm_hook(state=None, hook=bf16_compress_hook)
         logger.info("DDP gradient communication: BF16 compression enabled")
+    # Compile only the training forward; checkpoints, EMA and previews keep using `model`.
+    train_model = torch.compile(model) if args.compile else model
+    logger.info("torch.compile: %s, fused AdamW + foreach EMA: %s", args.compile, args.fused_optim)
     if resume_random_state is not None:
         restore_random_state(resume_random_state)
     if accelerator.is_main_process and args.report_to != "none":
@@ -282,7 +290,7 @@ def main(args):
             with torch.no_grad():
                 images = sample_posterior(moments, scale, bias)
             with accelerator.accumulate(model):
-                result = criterion(model, images, {"y": labels})
+                result = criterion(train_model, images, {"y": labels})
                 accelerator.backward(result["total"])
                 if accelerator.sync_gradients:
                     grad_norm = accelerator.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -290,7 +298,8 @@ def main(args):
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
                 if accelerator.sync_gradients:
-                    update_ema(ema, accelerator.unwrap_model(model), decay=args.ema_decay)
+                    update_ema(ema, accelerator.unwrap_model(model), decay=args.ema_decay,
+                               foreach=args.fused_optim)
             if not accelerator.sync_gradients:
                 continue
 
@@ -418,6 +427,10 @@ def parse_args(argv=None):
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--mixed-precision", choices=["no", "fp16", "bf16"], default="bf16")
     parser.add_argument("--allow-tf32", action="store_true")
+    parser.add_argument("--compile", action=argparse.BooleanOptionalAction, default=False,
+        help="torch.compile the training forward and the attention sync divergence")
+    parser.add_argument("--fused-optim", action=argparse.BooleanOptionalAction, default=False,
+        help="Fused AdamW and a single foreach EMA update")
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--checkpointing-steps", type=int, default=50000)
@@ -442,6 +455,19 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
   --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
   --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 7 \
   --attn-sync-heads per-head --attn-sync-loss l1 --attn-sync-weight 0.1 \
+  --batch-size 256 --max-train-steps 400000 \
+  --allow-tf32
+
+accelerate launch \
+  --multi_gpu --num_processes 8 --mixed_precision bf16 \
+  -m attnsync.train \
+  --model SiT-XL/2 --exp-name attn_sync_XL \
+  --data-dir /root/imagenet_256 \
+  --output-dir /v/mnt/GH/SiT \
+  --use-tread-routing \
+  --tread-start-block 2 --tread-end-block 25 --tread-active-ratio 0.5 \
+  --use-attn-sync --attn-sync-student-blocks 8 --attn-sync-teacher-block 16 \
+  --attn-sync-heads per-head --attn-sync-loss js --attn-sync-weight 1.0 \
   --batch-size 256 --max-train-steps 400000 \
   --allow-tf32
 '''
