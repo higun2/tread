@@ -370,6 +370,7 @@ def main(args):
             if (args.report_to == "wandb" and args.sampling_steps > 0
                     and (global_step == 1 or global_step % args.sampling_steps == 0)):
                 accelerator.wait_for_everyone()
+
                 if preview is None:
                     preview = prepare_training_preview(
                         args, accelerator.device,
@@ -469,12 +470,12 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
 accelerate launch \
   --multi_gpu --num_processes 8 --mixed_precision bf16 \
   -m attnsync.train \
-  --model SiT-XL/2 --exp-name attn_sync_XL \
+  --model SiT-XL/2 --exp-name attn_sync_XL2 \
   --data-dir /root/imagenet_256 \
   --output-dir /v/mnt/GH/SiT \
   --use-tread-routing \
   --tread-start-block 2 --tread-end-block 25 --tread-active-ratio 0.5 \
-  --use-attn-sync --attn-sync-student-blocks 8 --attn-sync-teacher-block 16 \
+  --use-attn-sync --attn-sync-student-blocks 8 --attn-sync-teacher-block 20 \
   --attn-sync-heads per-head --attn-sync-loss js --attn-sync-weight 1.0 \
   --batch-size 256 --max-train-steps 400000 \
   --allow-tf32
