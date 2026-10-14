@@ -260,6 +260,13 @@ def main(args):
             resume_random_state = saved_random_states[accelerator.process_index]
         else:
             resume_random_state = checkpoint.get("random_state")
+    elif args.init_ckpt is not None:
+        # Fine-tuning: take model/EMA weights only; optimizer, scheduler and step start fresh.
+        logger.info("Initializing model/EMA weights from %s", args.init_ckpt)
+        checkpoint = torch.load(args.init_ckpt, map_location="cpu", weights_only=False)
+        model.load_state_dict(checkpoint["model"], strict=True)
+        ema.load_state_dict(checkpoint["ema"], strict=True)
+        del checkpoint
 
     model, optimizer, dataloader, scheduler = accelerator.prepare(
         model, optimizer, dataloader, scheduler
@@ -444,6 +451,8 @@ def parse_args(argv=None):
         help="Overwrite checkpoints/last.pt every N steps; 0 disables")
     parser.add_argument("--resume-last", action="store_true",
         help="Resume from checkpoints/last.pt (else the newest numbered checkpoint); overrides --resume-step")
+    parser.add_argument("--init-ckpt", default=None,
+        help="Load model/EMA weights (not optimizer or step) from this checkpoint; ignored when resuming")
     parser.add_argument("--sampling-steps", type=int, default=10000)
     parser.add_argument("--sampling-batch-size", type=int, default=64)
     return parser.parse_args(argv)
@@ -470,13 +479,13 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
 accelerate launch \
   --multi_gpu --num_processes 8 --mixed_precision bf16 \
   -m attnsync.train \
-  --model SiT-XL/2 --exp-name attn_sync_XL2 \
+  --model SiT-XL/2 --exp-name attn_sync_XL_s4_t23_test \
   --data-dir /root/imagenet_256 \
   --output-dir /v/mnt/GH/SiT \
   --use-tread-routing \
   --tread-start-block 2 --tread-end-block 25 --tread-active-ratio 0.5 \
-  --use-attn-sync --attn-sync-student-blocks 8 --attn-sync-teacher-block 20 \
+  --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 23 \
   --attn-sync-heads per-head --attn-sync-loss js --attn-sync-weight 1.0 \
   --batch-size 256 --max-train-steps 400000 \
-  --allow-tf32
+  --allow-tf32 --compile --fused-optim
 '''

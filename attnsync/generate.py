@@ -18,6 +18,7 @@ from samplers import euler_maruyama_sampler, euler_sampler
 from utils import load_legacy_checkpoints
 from .config import TREAD_DEFAULTS
 from .model import SiT_models
+from .sparse_guidance import sg_euler_maruyama_sampler, sg_euler_sampler, validate_sparse_guidance
 
 
 def create_npz_from_sample_folder(sample_dir: Path, num: int = 50_000) -> Path:
@@ -73,6 +74,11 @@ def main(args):
         raise RuntimeError("Distributed generation requires at least one CUDA GPU")
     if args.cfg_scale < 1.0:
         raise ValueError("--cfg-scale must be >= 1.0")
+    use_sg = args.sg_scale is not None
+    if use_sg:
+        validate_sparse_guidance(args.sg_scale, args.sg_strong, args.sg_weak)
+        if args.cfg_scale != 1.0:
+            raise ValueError("Sparse Guidance replaces CFG here; use --cfg-scale 1.0")
 
     torch.set_grad_enabled(False)
     torch.backends.cuda.matmul.allow_tf32 = args.tf32
@@ -104,6 +110,8 @@ def main(args):
         checkpoint, args.tread_eval_mode, args.tread_seed,
     )
 
+    if use_sg and not routing_config["use_tread_routing"]:
+        raise ValueError("Sparse Guidance requires a checkpoint trained with --use-tread-routing")
     if model_name not in SiT_models:
         raise ValueError(f"Unknown model {model_name!r}; choose from {list(SiT_models)}")
     if args.cfg_scale > 1.0 and cfg_prob <= 0:
@@ -135,6 +143,7 @@ def main(args):
         f"recursive-{int(routing_config['tread_recursive'])}-"
         f"pattern-{routing_config['tread_recursive_pattern']}-"
         f"depth-emb-{int(routing_config['tread_depth_embedding'])}"
+        + (f"-sg-{args.sg_scale}-strong-{args.sg_strong}-weak-{args.sg_weak}" if use_sg else "")
     )
     sample_folder = Path(args.sample_dir).expanduser() / folder_name
     if rank == 0:
@@ -171,10 +180,19 @@ def main(args):
             guidance_low=args.guidance_low, guidance_high=args.guidance_high,
             path_type=path_type,
         )
-        latents = (
-            euler_maruyama_sampler(**sampling_kwargs)
-            if args.mode == "sde" else euler_sampler(**sampling_kwargs)
-        )
+        if use_sg:
+            sampling_kwargs.update(
+                sg_scale=args.sg_scale, sg_gamma_strong=args.sg_strong, sg_gamma_weak=args.sg_weak,
+            )
+            latents = (
+                sg_euler_maruyama_sampler(**sampling_kwargs)
+                if args.mode == "sde" else sg_euler_sampler(**sampling_kwargs)
+            )
+        else:
+            latents = (
+                euler_maruyama_sampler(**sampling_kwargs)
+                if args.mode == "sde" else euler_sampler(**sampling_kwargs)
+            )
         images = vae.decode(latents.float() / latent_scale).sample
         images = images.add(1).div(2).mul(255).clamp(0, 255)
         images = images.permute(0, 2, 3, 1).to("cpu", torch.uint8).numpy()
@@ -221,6 +239,12 @@ def parse_args(argv=None):
     parser.add_argument("--heun", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--guidance-low", type=float, default=0.0)
     parser.add_argument("--guidance-high", type=float, default=1.0)
+    parser.add_argument("--sg-scale", type=float, default=None,
+        help="Sparse Guidance weight w (enables SG_FLOPS); requires --cfg-scale 1.0")
+    parser.add_argument("--sg-strong", type=float, default=0.5,
+        help="Routed token fraction (sparsity) of the strong branch")
+    parser.add_argument("--sg-weak", type=float, default=0.9,
+        help="Routed token fraction (sparsity) of the weak branch")
     parser.add_argument("--legacy", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--encoder-depth", type=int, default=8)
     parser.add_argument("--dist-timeout-min", type=int, default=120)

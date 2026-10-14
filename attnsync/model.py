@@ -276,7 +276,13 @@ class SiT(VanillaSiT):
             raise ValueError("tread_eval_mode must be 'sparse' or 'dense'")
         return mode == "sparse"
 
-    def _active_ratio_for_forward(self, device):
+    def _active_ratio_for_forward(self, device, override=None):
+        if override is not None:
+            if self.training:
+                raise ValueError("tread_active_ratio override is inference-only")
+            if not 0 < override <= 1:
+                raise ValueError("tread_active_ratio override must be in (0, 1]")
+            return override
         if not self.training or self.tread_active_ratios is None:
             return self.tread_active_ratio
         # One selection for the whole forward; broadcast avoids rank-dependent
@@ -325,9 +331,13 @@ class SiT(VanillaSiT):
 
     def forward(
         self, x, t, y, return_logvar=False, force_drop_ids=None,
-        tread_eval_mode=None, return_routing_info=False,
+        tread_eval_mode=None, return_routing_info=False, tread_active_ratio=None,
     ):
+        # tread_active_ratio: inference-only kept-token fraction for this call
+        # (Sparse Guidance runs one checkpoint at two sparsity levels).
         sparse = self._sparse_for_forward(tread_eval_mode)
+        if tread_active_ratio is not None and not sparse:
+            raise ValueError("tread_active_ratio override requires the sparse TREAD path")
         capture_routesync = self.training and self.use_routesync and sparse
         capture_dense_push = (self.training and sparse and self.use_dense_push
                               and self.dense_push_weight > 0)
@@ -394,7 +404,7 @@ class SiT(VanillaSiT):
         # This is the full state immediately before the existing TREAD split.
         # Keep it in the graph: RouteSync gradients must reach the prefix.
         h_pre = x if capture_routesync else None
-        active_ratio = self._active_ratio_for_forward(x.device)
+        active_ratio = self._active_ratio_for_forward(x.device, tread_active_ratio)
         active_tokens = int(round(tokens * active_ratio))
         active_tokens = max(1, min(tokens, active_tokens))
         if capture_routesync and active_tokens == tokens:
