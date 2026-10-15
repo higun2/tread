@@ -76,7 +76,10 @@ def main(args):
         raise ValueError("--cfg-scale must be >= 1.0")
     use_sg = args.sg_scale is not None
     if use_sg:
-        validate_sparse_guidance(args.sg_scale, args.sg_strong, args.sg_weak)
+        validate_sparse_guidance(args.sg_scale, args.sg_strong, args.sg_weak, args.sg_strong_end,
+                                 args.sg_weak_end, auxiliary=args.sg_aux_ckpt is not None)
+    elif args.sg_aux_ckpt is not None:
+        raise ValueError("--sg-aux-ckpt needs --sg-scale")
         if args.cfg_scale != 1.0:
             raise ValueError("Sparse Guidance replaces CFG here; use --cfg-scale 1.0")
 
@@ -133,17 +136,37 @@ def main(args):
     model.eval()
     del checkpoint, state_dict
 
+    weak_model = None
+    if use_sg and args.sg_aux_ckpt is not None:
+        # SG_FID: weak branch on an early checkpoint of the same run (same architecture).
+        aux_checkpoint = torch.load(Path(args.sg_aux_ckpt).expanduser(), map_location="cpu",
+                                    weights_only=False)
+        aux_config, _ = resolve_tread_inference_config(aux_checkpoint, args.tread_eval_mode, args.tread_seed)
+        if any(aux_config[k] != routing_config[k] for k in
+               ("use_tread_routing", "tread_start_block", "tread_end_block")):
+            raise ValueError("--sg-aux-ckpt must use the same TREAD routing as --ckpt")
+        weak_model = SiT_models[model_name](
+            input_size=latent_size, num_classes=num_classes,
+            use_cfg=cfg_prob > 0, class_dropout_prob=cfg_prob,
+            fused_attn=fused_attn, qk_norm=qk_norm, path_type=path_type,
+            **aux_config,
+        ).to(device)
+        weak_model.load_state_dict(aux_checkpoint[args.state_key], strict=True)
+        weak_model.eval()
+        aux_steps = int(aux_checkpoint.get("steps", 0))
+        del aux_checkpoint
+
     vae = AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-{args.vae}").to(device).eval()
     route_mode = routing_config["tread_eval_mode"]
     folder_name = (
         f"{model_name.replace('/', '-')}-{_checkpoint_name(checkpoint_path)}-size-{resolution}-"
         f"vae-{args.vae}-cfg-{args.cfg_scale}-glow-{args.guidance_low}-"
-        f"ghigh-{args.guidance_high}-seed-{args.global_seed}-{args.mode}-"
-        f"tread-{route_mode}-ratio-{routing_config['tread_active_ratio']}-"
-        f"recursive-{int(routing_config['tread_recursive'])}-"
-        f"pattern-{routing_config['tread_recursive_pattern']}-"
-        f"depth-emb-{int(routing_config['tread_depth_embedding'])}"
+        f"ghigh-{args.guidance_high}-seed-{args.global_seed}-{args.mode}-{args.num_steps}-"
+        f"tread-{route_mode}-ratio-{routing_config['tread_active_ratio']}"
         + (f"-sg-{args.sg_scale}-strong-{args.sg_strong}-weak-{args.sg_weak}" if use_sg else "")
+        + (f"-strongend-{args.sg_strong_end}" if use_sg and args.sg_strong_end is not None else "")
+        + (f"-weakend-{args.sg_weak_end}" if use_sg and args.sg_weak_end is not None else "")
+        + (f"-aux-{aux_steps}" if weak_model is not None else "")
     )
     sample_folder = Path(args.sample_dir).expanduser() / folder_name
     if rank == 0:
@@ -183,6 +206,8 @@ def main(args):
         if use_sg:
             sampling_kwargs.update(
                 sg_scale=args.sg_scale, sg_gamma_strong=args.sg_strong, sg_gamma_weak=args.sg_weak,
+                sg_gamma_strong_end=args.sg_strong_end, sg_gamma_weak_end=args.sg_weak_end,
+                weak_model=weak_model,
             )
             latents = (
                 sg_euler_maruyama_sampler(**sampling_kwargs)
@@ -245,6 +270,12 @@ def parse_args(argv=None):
         help="Routed token fraction (sparsity) of the strong branch")
     parser.add_argument("--sg-weak", type=float, default=0.9,
         help="Routed token fraction (sparsity) of the weak branch")
+    parser.add_argument("--sg-strong-end", type=float, default=None,
+        help="If set, the strong branch rate follows a cosine from --sg-strong (first step) to this (last step)")
+    parser.add_argument("--sg-weak-end", type=float, default=None,
+        help="If set, the weak branch rate follows a cosine from --sg-weak (first step) to this (last step)")
+    parser.add_argument("--sg-aux-ckpt", default=None,
+        help="SG_FID: run the weak branch on this (early) checkpoint of the same run")
     parser.add_argument("--legacy", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--encoder-depth", type=int, default=8)
     parser.add_argument("--dist-timeout-min", type=int, default=120)

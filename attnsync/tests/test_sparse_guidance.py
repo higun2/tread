@@ -116,3 +116,32 @@ class Sampler(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SGFID(unittest.TestCase):
+    """Auxiliary weak model and cosine routing-rate schedules (SG_FID)."""
+
+    def test_cosine_schedule_endpoints(self):
+        from attnsync.sparse_guidance import cosine_gamma
+        self.assertAlmostEqual(cosine_gamma(0.6, 0.0, 0, 40), 0.6)
+        self.assertAlmostEqual(cosine_gamma(0.6, 0.0, 39, 40), 0.0)
+        self.assertAlmostEqual(cosine_gamma(0.0, 0.6, 39, 40), 0.6)
+        self.assertEqual(cosine_gamma(0.5, None, 7, 40), 0.5)
+
+    def test_weak_branch_runs_on_aux_with_schedule(self):
+        main, aux = FakeModel(), FakeModel()
+        x = torch.zeros(2, 4, 4, 4)
+        sg_euler_sampler(main, x, torch.zeros(2, dtype=torch.long), num_steps=5, sg_scale=2.0,
+                         sg_gamma_strong=0.0, sg_gamma_weak=0.6, sg_gamma_strong_end=0.6,
+                         sg_gamma_weak_end=0.0, weak_model=aux)
+        self.assertEqual(len(main.calls), 5)
+        self.assertEqual(len(aux.calls), 5)
+        self.assertAlmostEqual(main.calls[0][1], 1.0)   # gamma 0.0 -> all tokens
+        self.assertAlmostEqual(main.calls[-1][1], 0.4)  # gamma 0.6
+        self.assertAlmostEqual(aux.calls[0][1], 0.4)
+        self.assertAlmostEqual(aux.calls[-1][1], 1.0)
+
+    def test_aux_allows_weak_not_sparser(self):
+        validate_sparse_guidance(2.0, 0.0, 0.6, 0.6, 0.0, auxiliary=True)
+        with self.assertRaises(ValueError):
+            validate_sparse_guidance(2.0, 0.0, 0.6, 0.6, 0.0)

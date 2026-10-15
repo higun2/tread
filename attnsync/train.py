@@ -208,6 +208,8 @@ def main(args):
         resume_path = last if last.exists() else (numbered[-1] if numbered else None)
         if resume_path is None:
             logger.info("--resume-last: no checkpoint in %s, starting from scratch", checkpoint_dir)
+    elif args.resume_ckpt is not None:
+        resume_path = Path(args.resume_ckpt)
     elif args.resume_step > 0:
         resume_path = checkpoint_dir / f"{args.resume_step:07d}.pt"
     if resume_path is not None:
@@ -451,6 +453,9 @@ def parse_args(argv=None):
         help="Overwrite checkpoints/last.pt every N steps; 0 disables")
     parser.add_argument("--resume-last", action="store_true",
         help="Resume from checkpoints/last.pt (else the newest numbered checkpoint); overrides --resume-step")
+    parser.add_argument("--resume-ckpt", default=None,
+        help="Resume full state (model/EMA/optimizer/step/RNG) from this checkpoint path, "
+             "e.g. another run's; overrides --resume-step")
     parser.add_argument("--init-ckpt", default=None,
         help="Load model/EMA weights (not optimizer or step) from this checkpoint; ignored when resuming")
     parser.add_argument("--sampling-steps", type=int, default=10000)
@@ -462,25 +467,11 @@ if __name__ == "__main__":
     main(parse_args())
 
 '''
-WANDB_API_KEY=${WANDB_API_KEY} \
-CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
-  --multi_gpu --num_processes 4 --mixed_precision bf16 \
-  -m attnsync.train \
-  --model SiT-B/2 --exp-name attn_sync \
-  --data-dir /root/imagenet_256 \
-  --output-dir /v/mnt/GH/SiT \
-  --use-tread-routing \
-  --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
-  --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 7 \
-  --attn-sync-heads per-head --attn-sync-loss l1 --attn-sync-weight 0.1 \
-  --batch-size 256 --max-train-steps 400000 \
-  --allow-tf32
-
 accelerate launch \
   --multi_gpu --num_processes 8 --mixed_precision bf16 \
   -m attnsync.train \
   --model SiT-XL/2 --exp-name attn_sync_XL_s4_t23_test \
-  --data-dir /root/imagenet_256 \
+  --data-dir /v/mnt/GH/imagenet_256 \
   --output-dir /v/mnt/GH/SiT \
   --use-tread-routing \
   --tread-start-block 2 --tread-end-block 25 --tread-active-ratio 0.5 \
