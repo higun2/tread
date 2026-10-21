@@ -12,16 +12,22 @@ processes the same active token subset, so query/key rows correspond exactly bet
 blocks. That is why student and teacher blocks must both be routed blocks. Block indices
 are **zero-based**, like `--tread-start-block`.
 
-The package is a copy of `densepush`. DensePush and RouteSync are still available and off
-by default. Attention sync adds no parameters and runs only in sparse training forwards,
-so evaluation and `attnsync.generate` are unchanged.
+TREAD is optional. With `--no-use-tread-routing` (SiT + AttnSync), the training forward is
+the plain dense SiT forward and the maps are taken over all tokens, so any blocks can be
+student and teacher (`[0, depth)`, in any order). With TREAD, both must be routed blocks.
+
+The package contains only TREAD routing and attention sync. Options from earlier
+experiments (DensePush, RouteSync, diagonal attention correction, recursive routing,
+multi-ratio training) were removed; loading a checkpoint trained with one of them raises
+an error (`config.check_removed_options`). Attention sync adds no parameters and runs
+only in training forwards (the sparse forward with TREAD, the dense forward without it), so
+evaluation and `attnsync.generate` are unchanged.
 
 ## How the maps are computed
 
 The real block forward stays fused SDPA. For student and teacher blocks only, the
 attention log-probabilities `[B,H,K,K]` are recomputed in FP32 from the block's own
-adaLN, qkv and q/k norm. The TREAD diagonal attention correction is included when it is
-enabled. A test checks that these maps reproduce the real attention output. The teacher is
+adaLN, qkv and q/k norm (so `--qk-norm` is covered). A test checks that these maps reproduce the real attention output. The teacher is
 computed under `no_grad` with the autocast cache off (a CUDA regression test covers this).
 Gradients from the sync loss reach only the student blocks and the blocks before them.
 

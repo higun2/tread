@@ -10,15 +10,14 @@ from attnsync.loss import FlowMatchingLoss, attention_sync_loss
 from attnsync.model import SiT, attention_log_probs
 
 
-def make(recursive=False, correction=False, **kwargs):
+def make(qk_norm=False, **kwargs):
     kwargs.setdefault('attn_sync_student_blocks', [1, 2])
     kwargs.setdefault('attn_sync_teacher_block', 3)
     model = SiT(
         input_size=8, patch_size=2, hidden_size=32, decoder_hidden_size=32,
         depth=6, num_heads=4, num_classes=10, class_dropout_prob=.2,
-        qk_norm=False, fused_attn=True, use_tread_routing=True,
-        tread_start_block=1, tread_end_block=4, tread_recursive=recursive,
-        tread_num_groups=3, tread_attn_correction=correction,
+        qk_norm=qk_norm, fused_attn=True, use_tread_routing=True,
+        tread_start_block=1, tread_end_block=4,
         use_attn_sync=True, **kwargs)
     with torch.no_grad():
         for module in model.modules():
@@ -111,9 +110,9 @@ class AttentionSyncModelTests(unittest.TestCase):
         torch.set_num_threads(2)
 
     def test_log_probs_match_explicit_attention(self):
-        for correction in (False, True):
-            with self.subTest(correction=correction):
-                model = make(correction=correction).train()
+        for qk_norm in (False, True):
+            with self.subTest(qk_norm=qk_norm):
+                model = make(qk_norm).train()
                 block = model.blocks[2]
                 hidden, cond = torch.randn(3, 8, 32), torch.randn(3, 32)
                 captured = []
@@ -131,9 +130,9 @@ class AttentionSyncModelTests(unittest.TestCase):
                 torch.testing.assert_close(attn.proj(out), attn(x), rtol=1e-4, atol=1e-5)
 
     def test_features_gradients_and_training_step(self):
-        for recursive, heads, kind in itertools.product((False, True), ('mean', 'per-head'), ('l1', 'js', 'kl')):
-            with self.subTest(recursive=recursive, heads=heads, kind=kind):
-                model = make(recursive, attn_sync_heads=heads, attn_sync_loss=kind).train()
+        for qk_norm, heads, kind in itertools.product((False, True), ('mean', 'per-head'), ('l1', 'js', 'kl')):
+            with self.subTest(qk_norm=qk_norm, heads=heads, kind=kind):
+                model = make(qk_norm, attn_sync_heads=heads, attn_sync_loss=kind).train()
                 _, features = model(torch.randn(4, 4, 8, 8), torch.rand(4), torch.tensor([1, 2, 3, 4]))
                 f = features['attn_sync']
                 self.assertEqual(set(f['students']), {1, 2})

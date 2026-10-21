@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from tread_routesync.attention_correction import log_resume_correction
-
 import argparse
 import copy
 from copy import deepcopy
@@ -23,7 +21,7 @@ from accelerate import Accelerator
 from accelerate.utils import ProjectConfiguration, gather_object, set_seed
 
 from dataset import CustomDataset
-from tread_token_routing.config import TREAD_DEFAULTS, add_tread_args, tread_kwargs
+from attnsync.config import TREAD_DEFAULTS, add_tread_args, check_removed_options, tread_kwargs
 from .loss import TOKEN_SETS, FlowMatchingLayerSyncLoss
 from .model import build_layersync_sit
 
@@ -196,13 +194,12 @@ def main(args):
         logger.info("Resuming from %s", resume_path)
         checkpoint = torch.load(resume_path, map_location="cpu", weights_only=False)
         saved = checkpoint["args"]
-        log_resume_correction(logger, saved, args)
-        # Only fields that change the training graph must match. Evaluation and
-        # one-shot debug policy can safely change when resuming.
+        check_removed_options(saved)
+        # Only fields that change the training graph must match. Evaluation policy
+        # (eval mode, subset seed) can safely change when resuming.
         for name in (
             "use_tread_routing", "tread_start_block", "tread_end_block",
-            "tread_active_ratio", "tread_recursive", "tread_num_groups",
-            "tread_recursive_pattern", "tread_fp32_endpoint",
+            "tread_active_ratio", "tread_fp32_endpoint",
         ):
             value = getattr(args, name)
             previous = (
@@ -247,7 +244,7 @@ def main(args):
             init_kwargs={"wandb": {"name": args.exp_name}},
         )
     logger.info("Parameters: %s", f"{sum(p.numel() for p in accelerator.unwrap_model(model).parameters()):,}")
-    logger.info("TREAD fixed-subset routing: %s", tread_kwargs(args))
+    logger.info("TREAD routing: %s", tread_kwargs(args))
     logger.info("LayerSync pairs (student -> teacher): %s, weight=%s, tokens=%s",
                 pairs, args.layersync_weight, args.layersync_tokens)
 

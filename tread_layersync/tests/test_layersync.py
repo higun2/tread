@@ -6,8 +6,8 @@ import torch
 from tread_layersync.loss import FlowMatchingLayerSyncLoss, align_pair, layersync_loss
 from tread_layersync.model import SiT_models
 from tread_layersync.train import layersync_pairs
-from tread_token_routing.loss import FlowMatchingLoss
-from tread_token_routing.model import SiT_models as TreadModels, gather_tokens
+from attnsync.loss import FlowMatchingLoss
+from attnsync.model import SiT_models as TreadModels, gather_tokens
 
 KWARGS = dict(input_size=8, num_classes=10, use_cfg=True, class_dropout_prob=0.1,
               use_tread_routing=True, tread_start_block=3, tread_end_block=9,

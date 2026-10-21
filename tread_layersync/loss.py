@@ -11,7 +11,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from tread_token_routing.model import gather_tokens
+from attnsync.model import gather_tokens
 
 TOKEN_SETS = ("all", "active", "routed")
 

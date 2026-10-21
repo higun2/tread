@@ -1,6 +1,6 @@
 # TREAD + LayerSync (selectable student/teacher blocks)
 
-TREAD training (`tread_token_routing`, forward unchanged) plus a LayerSync loss
+TREAD training (`attnsync.model` with its sync losses off, forward unchanged) plus a LayerSync loss
 between user-chosen blocks:
 
 ```text
@@ -50,7 +50,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 accelerate launch \
 
 W&B logs `loss/fm`, `loss/layersync`, `loss/total` and `layersync/cos_{s}_{t}`
 per pair. `--layersync-weight 0` (default) is exactly TREAD. Resume checks the
-LayerSync settings. Recursive TREAD (`--tread-recursive`) is supported.
+LayerSync settings.
 
 ## Generate
 

@@ -1,4 +1,4 @@
-"""Distributed generation for TREAD + RouteSync checkpoints."""
+"""Distributed generation for TREAD / AttnSync checkpoints (CFG or Sparse Guidance)."""
 
 from __future__ import annotations
 
@@ -15,8 +15,7 @@ from diffusers.models import AutoencoderKL
 from tqdm import tqdm
 
 from samplers import euler_maruyama_sampler, euler_sampler
-from utils import load_legacy_checkpoints
-from .config import TREAD_DEFAULTS
+from .config import TREAD_DEFAULTS, check_removed_options
 from .model import SiT_models
 from .sparse_guidance import sg_euler_maruyama_sampler, sg_euler_sampler, validate_sparse_guidance
 
@@ -52,6 +51,7 @@ def _checkpoint_name(path: Path) -> str:
 
 def resolve_tread_inference_config(checkpoint, eval_mode=None, routing_seed=None):
     """Restore training topology with inference-only mode and seed overrides."""
+    check_removed_options(checkpoint.get("args", {}))
     config = {
         name: _saved_arg(checkpoint, name, default)
         for name, default in TREAD_DEFAULTS.items()
@@ -129,12 +129,9 @@ def main(args):
         fused_attn=fused_attn, qk_norm=qk_norm, path_type=path_type,
         **routing_config,
     ).to(device)
-    state_dict = checkpoint[args.state_key]
-    if args.legacy:
-        state_dict = load_legacy_checkpoints(state_dict, encoder_depth=args.encoder_depth)
-    model.load_state_dict(state_dict, strict=True)
+    model.load_state_dict(checkpoint[args.state_key], strict=True)
     model.eval()
-    del checkpoint, state_dict
+    del checkpoint
 
     weak_model = None
     if use_sg and args.sg_aux_ckpt is not None:
@@ -178,10 +175,6 @@ def main(args):
             f"route_range=[{routing_config['tread_start_block']}, "
             f"{routing_config['tread_end_block']}), "
             f"active_ratio={routing_config['tread_active_ratio']}, "
-            f"recursive={routing_config['tread_recursive']}, "
-            f"groups={routing_config['tread_num_groups']}, "
-            f"recursive_pattern={routing_config['tread_recursive_pattern']}, "
-            f"depth_embedding={routing_config['tread_depth_embedding']}, "
             f"checkpoint_eval_mode={trained_eval_mode}, inference_eval_mode={route_mode}"
             f", routing_seed={routing_config['tread_seed']}"
         )
@@ -276,8 +269,6 @@ def parse_args(argv=None):
         help="If set, the weak branch rate follows a cosine from --sg-weak (first step) to this (last step)")
     parser.add_argument("--sg-aux-ckpt", default=None,
         help="SG_FID: run the weak branch on this (early) checkpoint of the same run")
-    parser.add_argument("--legacy", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--encoder-depth", type=int, default=8)
     parser.add_argument("--dist-timeout-min", type=int, default=120)
     return parser.parse_args(argv)
 

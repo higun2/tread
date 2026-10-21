@@ -1,6 +1,6 @@
 """TREAD SiT that can expose selected block outputs for LayerSync.
 
-The forward pass is the TREAD forward of ``tread_token_routing`` unchanged; when
+The forward pass is the TREAD forward of ``attnsync.model`` (sync losses off) unchanged; when
 ``capture_blocks`` is given, the output of each listed block (zero-based) is
 returned together with the original token positions it holds:
 
@@ -15,20 +15,11 @@ from functools import partial
 
 import torch
 
-from tread_token_routing.model import SiT as TreadSiT
-from tread_token_routing.model import gather_tokens, random_subset_indices, restore_token_order
+from attnsync.model import SiT as TreadSiT
+from attnsync.model import gather_tokens, random_subset_indices, restore_token_order
 
 
 class SiT(TreadSiT):
-    def _block_for(self, index):
-        if not self.tread_recursive:
-            return self.blocks[index]
-        if index < self.tread_start_block:
-            return self.prefix_blocks[index]
-        if index >= self.tread_end_block:
-            return self.suffix_blocks[index - self.tread_end_block]
-        return self.recurrent_group_blocks[self._recursive_group_for_offset(index - self.tread_start_block)]
-
     def forward(self, x, t, y, return_logvar=False, force_drop_ids=None,
                 capture_blocks=None, return_routing=False, **kwargs):
         if not capture_blocks:
@@ -42,12 +33,12 @@ class SiT(TreadSiT):
         sparse = self._sparse_for_forward(kwargs.get("tread_eval_mode"))
 
         for index in range(self.tread_start_block if sparse else 0):
-            x = self._block_for(index)(x, condition)
+            x = self.blocks[index](x, condition)
             if index in capture:
                 features[index] = (x, None)
         if not sparse:  # dense path (evaluation or routing disabled)
             for index in range(self.base_depth):
-                x = self._block_for(index)(x, condition)
+                x = self.blocks[index](x, condition)
                 if index in capture:
                     features[index] = (x, None)
             out = (self.unpatchify(self.final_layer(x, condition)), None, features)
@@ -60,13 +51,13 @@ class SiT(TreadSiT):
         grouped = gather_tokens(x, permutation)
         active, bypass = grouped[:, :active_tokens], grouped[:, active_tokens:]
         for index in range(self.tread_start_block, self.tread_end_block):
-            active = self._run_routed_block(self._block_for(index), active, condition,
+            active = self._run_routed_block(self.blocks[index], active, condition,
                                             endpoint=index == self.tread_end_block - 1)
             if index in capture:
                 features[index] = (active, active_indices)
         x = restore_token_order(torch.cat((active, bypass), dim=1), permutation)
         for index in range(self.tread_end_block, self.base_depth):
-            x = self._block_for(index)(x, condition)
+            x = self.blocks[index](x, condition)
             if index in capture:
                 features[index] = (x, None)
         out = (self.unpatchify(self.final_layer(x, condition)), None, features)

@@ -1,8 +1,6 @@
-"""Flow-matching training for TREAD SiT with optional attention sync / DensePush losses."""
+"""Flow-matching training for TREAD SiT with optional routed attention sync (AttnSync)."""
 
 from __future__ import annotations
-
-from .attention_correction import log_resume_correction
 
 import argparse
 import copy
@@ -26,8 +24,8 @@ from accelerate.utils import ProjectConfiguration, gather_object, set_seed
 
 from dataset import CustomDataset
 from .config import (
-    ROUTESYNC_DEFAULTS, TREAD_DEFAULTS, add_routesync_args, add_tread_args,
-    tread_kwargs,
+    ATTN_SYNC_DEFAULTS, TREAD_DEFAULTS, add_attn_sync_args, add_tread_args,
+    check_removed_options, tread_kwargs,
 )
 from .loss import FlowMatchingLoss
 from .model import build_tread_sit
@@ -169,14 +167,6 @@ def main(args):
     scheduler = LambdaLR(optimizer, lambda _: 1.0)
     criterion = FlowMatchingLoss(
         args.prediction, args.path_type, args.weighting,
-        use_routesync=args.use_routesync,
-        routesync_weight=args.routesync_weight,
-        routesync_sample_ratio=args.routesync_sample_ratio,
-        routesync_loss_type=args.routesync_loss_type,
-        routesync_debug=args.routesync_debug,
-        use_dense_push=args.use_dense_push,
-        dense_push_weight=args.dense_push_weight,
-        dense_push_margin=args.dense_push_margin,
         use_attn_sync=args.use_attn_sync,
         attn_sync_weight=args.attn_sync_weight,
         attn_sync_heads=args.attn_sync_heads,
@@ -216,35 +206,23 @@ def main(args):
         logger.info("Resuming from %s", resume_path)
         checkpoint = torch.load(resume_path, map_location="cpu", weights_only=False)
         saved = checkpoint["args"]
-        log_resume_correction(logger, saved, args)
-        # Only fields that change the training graph must match. Evaluation and
-        # one-shot debug policy can safely change when resuming.
+        check_removed_options(saved)
+        # Only fields that change the training graph must match. Evaluation policy
+        # (eval mode, subset seed) can safely change when resuming.
+        defaults = {**TREAD_DEFAULTS, **ATTN_SYNC_DEFAULTS}
         for name in (
             "use_tread_routing", "tread_start_block", "tread_end_block",
-            "tread_active_ratio", "tread_active_ratios", "tread_recursive", "tread_num_groups",
-            "tread_recursive_pattern", "tread_depth_embedding",
-            "tread_fp32_endpoint",
-            "use_dense_push", "dense_push_ratio", "dense_push_weight",
-            "dense_push_margin", "dense_push_block", "dense_push_tokens",
-            "dense_push_grad",
+            "tread_active_ratio", "tread_fp32_endpoint",
             "use_attn_sync", "attn_sync_student_blocks", "attn_sync_teacher_block",
             "attn_sync_heads", "attn_sync_loss", "attn_sync_weight", "attn_sync_ratio",
             "attn_sync_mask_ratio", "attn_sync_mask_unit",
-            "use_routesync", "routesync_weight", "routesync_sample_ratio",
-            "routesync_loss_type",
-            "routesync_target_blocks",
         ):
             value = getattr(args, name)
-            defaults = {**TREAD_DEFAULTS, **ROUTESYNC_DEFAULTS}
             previous = (
                 saved.get(name, defaults[name])
                 if isinstance(saved, dict)
                 else getattr(saved, name, defaults[name])
             )
-            if name == "routesync_target_blocks":
-                saved_end = saved.get("tread_end_block", 9) if isinstance(saved, dict) else getattr(saved, "tread_end_block", 9)
-                previous = tuple(previous) if previous is not None else (saved_end,)
-                value = tuple(value) if value is not None else (args.tread_end_block,)
             if previous != value:
                 raise ValueError(f"Resume configuration differs for {name}: {previous} vs {value}")
         model.load_state_dict(checkpoint["model"], strict=True)
@@ -266,6 +244,7 @@ def main(args):
         # Fine-tuning: take model/EMA weights only; optimizer, scheduler and step start fresh.
         logger.info("Initializing model/EMA weights from %s", args.init_ckpt)
         checkpoint = torch.load(args.init_ckpt, map_location="cpu", weights_only=False)
+        check_removed_options(checkpoint.get("args", {}))
         model.load_state_dict(checkpoint["model"], strict=True)
         ema.load_state_dict(checkpoint["ema"], strict=True)
         del checkpoint
@@ -289,7 +268,7 @@ def main(args):
                                    "dir": str(Path('/root') / "run_dir")}}
             )
     logger.info("Parameters: %s", f"{sum(p.numel() for p in accelerator.unwrap_model(model).parameters()):,}")
-    logger.info("TREAD fixed-subset routing: %s", tread_kwargs(args))
+    logger.info("TREAD routing / AttnSync: %s", tread_kwargs(args))
 
     scale = torch.full((1, 4, 1, 1), 0.18215, device=accelerator.device)
     bias = torch.zeros_like(scale)
@@ -330,27 +309,12 @@ def main(args):
                 "optimization/grad_norm": float(grad_norm),
                 "optimization/lr": scheduler.get_last_lr()[0],
             }
-            if args.use_dense_push:
-                logs.update({
-                    "loss/dense_push": result["dense_push"].detach().item(),
-                    "loss/dense_push_weighted": result["dense_push_weighted"].detach().item(),
-                    "dense_push/cosine": result["dense_push_cosine"].item(),
-                    "dense_push/above_margin_fraction": result["dense_push_active_fraction"].item(),
-                    "dense_push/samples_per_rank": result["dense_push_samples"],
-                    "dense_push/actual_fraction": result["dense_push_fraction"],
-                })
             if args.use_attn_sync:
                 logs.update({
                     "loss/attn_sync": result["attn_sync"].detach().item(),
                     "loss/attn_sync_weighted": result["attn_sync_weighted"].detach().item(),
                     **{f"attn_sync/{args.attn_sync_loss}_block{block}": value.item()
                        for block, value in result["attn_sync_per_block"].items()},
-                })
-            if args.tread_active_ratios is not None:
-                routed_model = accelerator.unwrap_model(model)
-                logs.update({
-                    "routing/active_ratio": routed_model.last_tread_active_ratio,
-                    "routing/active_fraction": routed_model.last_tread_active_fraction,
                 })
             progress.set_postfix(loss=f"{logs['loss/total']:.4f}")
             accelerator.log(logs, step=global_step)
@@ -424,7 +388,7 @@ def parse_args(argv=None):
     parser.add_argument("--fused-attn", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--qk-norm", action=argparse.BooleanOptionalAction, default=False)
     add_tread_args(parser)
-    add_routesync_args(parser)
+    add_attn_sync_args(parser)
     parser.add_argument("--path-type", choices=["linear", "cosine"], default="linear")
     parser.add_argument("--prediction", choices=["v"], default="v")
     parser.add_argument("--weighting", choices=["uniform", "lognormal"], default="uniform")
