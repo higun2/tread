@@ -23,6 +23,8 @@ L = L_FM + λ · mean_{s ∈ students} D( A_s , stopgrad(A_teacher) )
   one (`per-head`) or averaged first (`mean`).
 - With TREAD, student and teacher must both be routed blocks. All routed blocks process the
   same active token subset, so query/key rows correspond exactly.
+- TREAD is optional. Without it (`--no-use-tread-routing`), the training forward is the plain
+  dense SiT forward and the maps cover all tokens, so any two blocks can be paired.
 - No parameters are added. Inference is the ordinary dense SiT forward.
 
 ## Repository layout
@@ -65,6 +67,17 @@ accelerate launch --multi_gpu --num_processes 4 --mixed_precision bf16 \
   -m attnsync.train --model SiT-B/2 --exp-name attn_sync_js_w1 \
   --data-dir [DATA_DIR] --output-dir [OUTPUT_DIR] \
   --use-tread-routing --tread-start-block 2 --tread-end-block 9 --tread-active-ratio 0.5 \
+  --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 7 \
+  --attn-sync-heads per-head --attn-sync-loss js --attn-sync-weight 1.0 \
+  --batch-size 256 --max-train-steps 400000 --allow-tf32
+```
+
+**SiT + AttnSync, without TREAD.** Drop the routing flags and pass `--no-use-tread-routing`:
+
+```bash
+accelerate launch --multi_gpu --num_processes 4 --mixed_precision bf16 \
+  -m attnsync.train --model SiT-B/2 --exp-name sit-attnsync-4to7 \
+  --data-dir [DATA_DIR] --output-dir [OUTPUT_DIR] --no-use-tread-routing \
   --use-attn-sync --attn-sync-student-blocks 4 --attn-sync-teacher-block 7 \
   --attn-sync-heads per-head --attn-sync-loss js --attn-sync-weight 1.0 \
   --batch-size 256 --max-train-steps 400000 --allow-tf32
@@ -123,15 +136,21 @@ python evaluator.py VIRTUAL_imagenet256_labeled.npz [SAMPLE_DIR]/<sample-folder>
 ImageNet 256×256, FID-50K. Unless noted: 400K steps, batch 256, EMA, SDE 250 steps,
 **no guidance (CFG 1.0)**, dense inference, training seed 0.
 
-**SiT-B/2, TREAD route `[2, 9)`, alignment pair 4 → 7**
+**SiT-B/2, alignment pair 4 → 7** (TREAD route `[2, 9)` where used; AttnSync is per-head JS, λ 1.0)
 
-| Method | FID ↓ | sFID ↓ | IS ↑ | Precision ↑ | Recall ↑ |
-|---|---|---|---|---|---|
-| TREAD | 16.85 | 6.69 | 82.03 | 0.66 | **0.57** |
-| TREAD + LayerSync (λ 0.1) | 15.41 | 7.14 | 89.40 | 0.68 | 0.56 |
-| TREAD + AttnSync (per-head JS, λ 1.0) | **11.04** | **6.16** | **107.87** | **0.72** | 0.55 |
+| Base | Method | FID ↓ | sFID ↓ | IS ↑ | Precision ↑ | Recall ↑ |
+|---|---|---|---|---|---|---|
+| SiT | – | 33.71 | 6.55 | 45.00 | 0.54 | 0.63 |
+| SiT | + LayerSync (λ 0.3) | 29.99 | 6.13 | 47.69 | 0.565 | 0.631 |
+| SiT | + AttnSync | **27.70** | **6.02** | **51.57** | **0.576** | **0.638** |
+| TREAD | – | 16.85 | 6.69 | 82.03 | 0.66 | **0.57** |
+| TREAD | + LayerSync (λ 0.1) | 15.41 | 7.14 | 89.40 | 0.68 | 0.56 |
+| TREAD | + AttnSync | **11.04** | **6.16** | **107.87** | **0.72** | 0.55 |
 
-Across the six tested AttnSync settings on this setup (L1 mean or per-head with λ 0.1, KL
+AttnSync lowers FID by about 6 on both bases and is below LayerSync on both. The
+LayerSync weight differs between the two bases.
+
+Across the six tested AttnSync settings on the TREAD setup (L1 mean or per-head with λ 0.1, KL
 with λ 0.1, JS with λ 0.5, 1.0 or 2.0), FID was 11.04–12.82, below TREAD and TREAD + LayerSync
 in every case.
 
